@@ -1,0 +1,99 @@
+name: trinitycore
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: tc-db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      TC_DB_USER: ${TC_DB_USER:-trinity}
+      TC_DB_PASSWORD: ${TC_DB_PASSWORD:-trinity}
+      TC_AUTH_DB: ${TC_AUTH_DB:-auth}
+      TC_CHARACTERS_DB: ${TC_CHARACTERS_DB:-characters}
+      TC_WORLD_DB: ${TC_WORLD_DB:-world}
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+  authserver:
+    build:
+      context: .
+      dockerfile: docker/trinitycore/Dockerfile
+      args:
+        TC_BRANCH: ${TC_BRANCH:-master}
+        BUILD_JOBS: ${BUILD_JOBS:-}
+    image: trinitycore:${TC_BRANCH:-master}
+    container_name: tc-authserver
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TC_DB_HOST: db
+      TC_DB_PORT: 3306
+      TC_DB_USER: ${TC_DB_USER:-trinity}
+      TC_DB_PASSWORD: ${TC_DB_PASSWORD:-trinity}
+      TC_AUTH_DB: ${TC_AUTH_DB:-auth}
+    entrypoint: ["/usr/local/bin/authserver-entrypoint.sh"]
+    volumes:
+      - logs:/opt/trinitycore/logs
+    ports:
+      - "${AUTH_PORT:-3724}:3724"
+
+  worldserver:
+    # Reuses the image built by the authserver service.
+    image: trinitycore:${TC_BRANCH:-master}
+    container_name: tc-worldserver
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      authserver:
+        condition: service_started
+    environment:
+      TC_DB_HOST: db
+      TC_DB_PORT: 3306
+      TC_DB_USER: ${TC_DB_USER:-trinity}
+      TC_DB_PASSWORD: ${TC_DB_PASSWORD:-trinity}
+      TC_AUTH_DB: ${TC_AUTH_DB:-auth}
+      TC_CHARACTERS_DB: ${TC_CHARACTERS_DB:-characters}
+      TC_WORLD_DB: ${TC_WORLD_DB:-world}
+      TC_DATA_DIR: /data
+      # Set TC_TDB_URL to auto-download the matching TDB release on first run.
+      TC_TDB_URL: ${TC_TDB_URL:-}
+    entrypoint: ["/usr/local/bin/worldserver-entrypoint.sh"]
+    # worldserver exposes an interactive console; keep stdin open.
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./data:/data
+      - logs:/opt/trinitycore/logs
+    ports:
+      - "${WORLD_PORT:-8085}:8085"
+
+  # One-off helper to extract client data from a mounted WoW client.
+  # Usage: docker compose run --rm extractor
+  extractor:
+    image: trinitycore:${TC_BRANCH:-master}
+    profiles: ["tools"]
+    entrypoint: ["/data/extract-client-data.sh"]
+    working_dir: /wow
+    volumes:
+      - ${WOW_CLIENT_DIR:-./wow-client}:/wow
+      - ./data:/out
+      - ./scripts/extract-client-data.sh:/data/extract-client-data.sh:ro
+    environment:
+      OUTPUT_DIR: /out
+
+volumes:
+  db-data:
+  logs:

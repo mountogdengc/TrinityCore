@@ -1,0 +1,7 @@
+.git
+.env
+data/
+wow-client/
+logs/
+*.log
+README.md
