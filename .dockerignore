@@ -1,0 +1,8 @@
+.git
+.codex
+.env
+data/
+wow-client/
+logs/
+*.log
+db-data
