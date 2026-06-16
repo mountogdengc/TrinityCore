@@ -44,6 +44,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt
 RUN git clone --depth 1 --branch "${TC_BRANCH}" "${TC_REPO}" trinitycore-src
 
+# Apply the player-bot overlay (Custom/Bots scripts + minimal core patches) onto
+# the freshly cloned source before configuring the build. The apply step is
+# idempotent and fails loudly if an upstream anchor has moved.
+ARG BOTS_OVERLAY=1
+COPY overlay/ /opt/overlay/
+RUN if [ "${BOTS_OVERLAY}" = "1" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends python3 \
+        && rm -rf /var/lib/apt/lists/* \
+        && /opt/overlay/apply-overlay.sh /opt/trinitycore-src ; \
+    fi
+
 WORKDIR /opt/trinitycore-src/build
 RUN cmake .. \
         -DCMAKE_INSTALL_PREFIX=/opt/trinitycore \
