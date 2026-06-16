@@ -60,12 +60,113 @@ runBtn:SetSize(60, 22)
 runBtn:SetPoint("TOPRIGHT", -14, -30)
 runBtn:SetText("Run")
 
+-- "recent commands" dropdown toggle.
+local histBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+histBtn:SetSize(26, 22)
+histBtn:SetPoint("RIGHT", runBtn, "LEFT", -6, 0)
+histBtn:SetText("v")
+
 local cmdBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
 cmdBox:SetSize(380, 20)
 cmdBox:SetPoint("LEFT", cmdLabel, "RIGHT", 12, 0)
-cmdBox:SetPoint("RIGHT", runBtn, "LEFT", -10, 0)
+cmdBox:SetPoint("RIGHT", histBtn, "LEFT", -8, 0)
 cmdBox:SetAutoFocus(false)
 cmdBox:SetMaxLetters(240)  -- addon messages cap at 255 bytes incl. opcode+token
+
+-- ------------------------------------------------------- command history
+local MAX_HISTORY = 50      -- entries kept in SavedVariables
+local MAX_SHOWN   = 15      -- entries shown in the dropdown
+
+function TCAdmin:PushHistory(cmd)
+    if not cmd or cmd == "" then return end
+    TCAdminDB = TCAdminDB or {}
+    local h = TCAdminDB.history or {}
+    for i = #h, 1, -1 do          -- drop an existing duplicate
+        if h[i] == cmd then table.remove(h, i) end
+    end
+    table.insert(h, 1, cmd)       -- most-recent first
+    while #h > MAX_HISTORY do table.remove(h) end
+    TCAdminDB.history = h
+end
+
+-- Dropdown list of recent commands.
+local histList = CreateFrame("Frame", "TCAdminHistoryList", frame, "BackdropTemplate")
+histList:SetWidth(380)
+histList:SetPoint("TOPRIGHT", histBtn, "BOTTOMRIGHT", 0, -2)
+histList:SetFrameStrata("FULLSCREEN_DIALOG")
+histList:SetBackdrop({
+    bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+})
+histList:Hide()
+
+local histItems = {}
+
+local function newHistItem(i)
+    local b = CreateFrame("Button", nil, histList)
+    b:SetHeight(18)
+    b:SetPoint("TOPLEFT", 8, -6 - (i - 1) * 18)
+    b:SetPoint("TOPRIGHT", -8, -6 - (i - 1) * 18)
+    b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    b.text:SetPoint("LEFT", 2, 0)
+    b.text:SetJustifyH("LEFT")
+    b.text:SetPoint("RIGHT", -2, 0)
+    b.text:SetWordWrap(false)
+    return b
+end
+
+local function populateHistory()
+    for _, b in ipairs(histItems) do b:Hide() end
+    TCAdminDB = TCAdminDB or {}
+    local h = TCAdminDB.history or {}
+    local rows = 0
+
+    if #h == 0 then
+        local b = histItems[1] or newHistItem(1); histItems[1] = b
+        b.text:SetText("|cff808080(no recent commands)|r")
+        b:SetScript("OnClick", nil)
+        b:Show()
+        rows = 1
+    else
+        local shown = math.min(#h, MAX_SHOWN)
+        for i = 1, shown do
+            local cmd = h[i]
+            local b = histItems[i] or newHistItem(i); histItems[i] = b
+            b.text:SetText(cmd)
+            b:SetScript("OnClick", function()
+                cmdBox:SetText(cmd)
+                cmdBox:SetFocus()
+                cmdBox:SetCursorPosition(#cmd)
+                histList:Hide()
+            end)
+            b:Show()
+            rows = i
+        end
+        -- trailing "clear history" action
+        rows = rows + 1
+        local cb = histItems[rows] or newHistItem(rows); histItems[rows] = cb
+        cb.text:SetText("|cffff8080— clear history —|r")
+        cb:SetScript("OnClick", function()
+            TCAdminDB.history = {}
+            histList:Hide()
+        end)
+        cb:Show()
+    end
+
+    histList:SetHeight(rows * 18 + 12)
+end
+
+histBtn:SetScript("OnClick", function()
+    if histList:IsShown() then
+        histList:Hide()
+    else
+        populateHistory()
+        histList:Show()
+    end
+end)
 
 local function runRaw()
     local t = (cmdBox:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -75,11 +176,13 @@ local function runRaw()
     end
     cmdBox:SetText("")
     cmdBox:ClearFocus()
+    histList:Hide()
 end
 
 cmdBox:SetScript("OnEnterPressed", runRaw)
-cmdBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+cmdBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus(); histList:Hide() end)
 runBtn:SetScript("OnClick", runRaw)
+frame:HookScript("OnHide", function() histList:Hide() end)
 
 -- Output log (newest at the bottom).
 local out = CreateFrame("ScrollingMessageFrame", nil, frame)
@@ -112,6 +215,7 @@ end
 
 -- ------------------------------------------------------------- run a command
 function TCAdmin:Execute(command)
+    self:PushHistory(command)
     self:Log("> ." .. command, 1.0, 0.82, 0.0)
     self:SendCommand(command, {
         onLine = function(line) self:Log(line, 0.85, 0.85, 0.85) end,

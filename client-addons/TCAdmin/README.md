@@ -46,6 +46,11 @@ Copy the `TCAdmin` folder into your WoW client's AddOns directory:
 - **Raw command box** at the top: type any command (the leading dot is
   optional) and press Enter or click **Run** — e.g. `additem 49623 1`. Useful
   for anything not in the catalog.
+- **Recent commands** — click the `v` button next to the box for a dropdown of
+  your recently-run commands; pick one to drop it back into the box (then edit
+  and/or press Enter). The list ends with a *clear history* action. History is
+  saved between sessions via the addon's `TCAdminDB` SavedVariable (last 50
+  commands, deduplicated, most-recent first).
 - Pick a category on the left, click a command on the right.
 - Commands ending in `...` prompt for input (item ID, player name, message, …).
 - `/tca <raw command>` — run a command directly, e.g. `/tca server info`.
