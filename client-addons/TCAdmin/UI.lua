@@ -34,7 +34,7 @@ StaticPopupDialogs["TCADMIN_CONFIRM"] = {
 
 -- ------------------------------------------------------------------ window
 local frame = CreateFrame("Frame", "TCAdminFrame", UIParent, "BasicFrameTemplateWithInset")
-frame:SetSize(560, 480)
+frame:SetSize(560, 520)
 frame:SetPoint("CENTER")
 frame:SetFrameStrata("DIALOG")
 frame:SetMovable(true)
@@ -49,6 +49,37 @@ TCAdmin.frame = frame
 local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 title:SetPoint("TOP", 0, -4)
 title:SetText("TC Admin Menu")
+
+-- Raw command box: type any command (leading dot optional) and press Enter.
+local cmdLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+cmdLabel:SetPoint("TOPLEFT", 14, -34)
+cmdLabel:SetText("Command:")
+
+local runBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+runBtn:SetSize(60, 22)
+runBtn:SetPoint("TOPRIGHT", -14, -30)
+runBtn:SetText("Run")
+
+local cmdBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+cmdBox:SetSize(380, 20)
+cmdBox:SetPoint("LEFT", cmdLabel, "RIGHT", 12, 0)
+cmdBox:SetPoint("RIGHT", runBtn, "LEFT", -10, 0)
+cmdBox:SetAutoFocus(false)
+cmdBox:SetMaxLetters(240)  -- addon messages cap at 255 bytes incl. opcode+token
+
+local function runRaw()
+    local t = (cmdBox:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    t = t:gsub("^%.", "")  -- tolerate a leading dot if the user types one
+    if t ~= "" then
+        TCAdmin:Execute(t)
+    end
+    cmdBox:SetText("")
+    cmdBox:ClearFocus()
+end
+
+cmdBox:SetScript("OnEnterPressed", runRaw)
+cmdBox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+runBtn:SetScript("OnClick", runRaw)
 
 -- Output log (newest at the bottom).
 local out = CreateFrame("ScrollingMessageFrame", nil, frame)
@@ -127,7 +158,7 @@ local function buildCommandButtons(catIndex)
         if not b then
             b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
             b:SetSize(280, 24)
-            b:SetPoint("TOPLEFT", 160, -36 - (i - 1) * 26)
+            b:SetPoint("TOPLEFT", 160, -66 - (i - 1) * 26)
             cmdButtons[i] = b
         end
         b:SetText(entry.label)
@@ -140,7 +171,7 @@ local function buildCategories()
     for i, cat in ipairs(TCAdmin.catalog) do
         local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         b:SetSize(130, 24)
-        b:SetPoint("TOPLEFT", 12, -36 - (i - 1) * 26)
+        b:SetPoint("TOPLEFT", 12, -66 - (i - 1) * 26)
         b:SetText(cat.category)
         b:SetScript("OnClick", function() buildCommandButtons(i) end)
         catButtons[i] = b

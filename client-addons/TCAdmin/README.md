@@ -43,6 +43,9 @@ Copy the `TCAdmin` folder into your WoW client's AddOns directory:
 ## Use
 
 - `/tca` or `/tcadmin` — toggle the window.
+- **Raw command box** at the top: type any command (the leading dot is
+  optional) and press Enter or click **Run** — e.g. `additem 49623 1`. Useful
+  for anything not in the catalog.
 - Pick a category on the left, click a command on the right.
 - Commands ending in `...` prompt for input (item ID, player name, message, …).
 - `/tca <raw command>` — run a command directly, e.g. `/tca server info`.
