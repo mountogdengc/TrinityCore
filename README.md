@@ -170,6 +170,22 @@ UPDATE realmlist SET address = '<server-ip>' WHERE id = 1;
 
 ---
 
+## In-game admin menu addon
+
+`client-addons/TCAdmin/` is a client addon that gives you an in-game window of
+GM commands (teleport, items, NPC spawn, server controls, …). Clicking a button
+runs the command on the server and streams the output back.
+
+It uses TrinityCore's **native addon command channel** (addon prefix
+`TrinityCore`), so the server enforces your account's GM permissions and **no
+worldserver rebuild is required**. Copy the folder to
+`<WoW client>/Interface/AddOns/TCAdmin/`, log in on a GM account, and type
+`/tca`. See [`client-addons/TCAdmin/README.md`](client-addons/TCAdmin/README.md)
+for details and how to customise the command list.
+
+> The addon channel is enabled by default (`Addon.Channel = 1` in
+> `worldserver.conf`); the deployment keeps that default.
+
 ## Configuration
 
 All tunables live in `.env` (copied from `.env.example`). The container
@@ -205,6 +221,8 @@ preserved across versions.
 │   └── mysql/init/                 # DB + user bootstrap (first init only)
 ├── scripts/
 │   └── extract-client-data.sh      # client data extraction
+├── client-addons/
+│   └── TCAdmin/                    # in-game GM/admin command menu addon
 └── data/                           # extracted client data (gitignored)
 ```
 
