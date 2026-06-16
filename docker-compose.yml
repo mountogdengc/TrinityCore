@@ -70,6 +70,9 @@ services:
       TC_DATA_DIR: /data
       # Set TC_TDB_URL to auto-download the matching TDB release on first run.
       TC_TDB_URL: ${TC_TDB_URL:-}
+      # SOAP remote console, used by `./tc account` / `./tc cmd`.
+      TC_SOAP_ENABLED: ${TC_SOAP_ENABLED:-1}
+      TC_SOAP_PORT: ${TC_SOAP_PORT:-7878}
     entrypoint: ["/usr/local/bin/worldserver-entrypoint.sh"]
     # worldserver exposes an interactive console; keep stdin open.
     stdin_open: true
@@ -79,6 +82,7 @@ services:
       - logs:/opt/trinitycore/logs
     ports:
       - "${WORLD_PORT:-8085}:8085"
+      - "${SOAP_PORT:-7878}:7878"
 
   # One-off helper to extract client data from a mounted WoW client.
   # Usage: docker compose run --rm extractor

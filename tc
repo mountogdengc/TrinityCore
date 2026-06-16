@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+##############################################################################
+# tc -- convenience wrapper around the TrinityCore Docker Compose stack.
+#
+# Run `./tc help` for the list of commands.
+##############################################################################
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+COMPOSE="docker compose"
+WORLD_CONTAINER="tc-worldserver"
+
+# Prefer the v2 plugin; fall back to legacy docker-compose if needed.
+if ! docker compose version >/dev/null 2>&1; then
+    if command -v docker-compose >/dev/null 2>&1; then
+        COMPOSE="docker-compose"
+    else
+        echo "error: Docker Compose not found (need 'docker compose' or 'docker-compose')." >&2
+        exit 1
+    fi
+fi
+
+usage() {
+    cat <<'EOF'
+tc -- TrinityCore Docker Compose helper
+
+Usage: ./tc <command> [args]
+
+Setup
+  init                Create .env from .env.example (if missing)
+  build               Build the TrinityCore image
+  extract             Extract client data from your WoW client into ./data
+
+Lifecycle
+  up                  Start the full stack (db, authserver, worldserver)
+  down                Stop the stack (keeps the database volume)
+  destroy             Stop the stack and DELETE the database volume
+  restart [svc]       Restart everything, or a single service
+  ps                  Show service status
+
+Operate
+  logs [svc]          Follow logs (all services, or one; default: worldserver)
+  console             Attach to the worldserver console (detach: Ctrl-p Ctrl-q)
+  account <name> <pass> [gm]
+                      Create an account via SOAP; optional gm level (0-3).
+                      NOTE: needs an existing GM account (TC_SOAP_USER) --
+                      create your first account with './tc console'.
+  cmd "<console cmd>" Run a worldserver console command via SOAP
+  sql                 Open a MySQL shell as the trinity user
+  shell [svc]         Open a bash shell in a service container (default: worldserver)
+
+Misc
+  help                Show this help
+EOF
+}
+
+# Read a value from .env (used for the MySQL shell).
+env_val() {
+    local key="$1" def="${2:-}"
+    if [ -f .env ]; then
+        local v
+        v=$(grep -E "^${key}=" .env | tail -n1 | cut -d= -f2- || true)
+        [ -n "$v" ] && { printf '%s' "$v"; return; }
+    fi
+    printf '%s' "$def"
+}
+
+require_env() {
+    if [ ! -f .env ]; then
+        echo "error: .env not found. Run './tc init' first." >&2
+        exit 1
+    fi
+}
+
+# Send a single command to the worldserver over SOAP.
+soap_cmd() {
+    require_env
+    command -v curl >/dev/null 2>&1 || { echo "error: curl is required for SOAP commands." >&2; exit 1; }
+
+    local console_cmd="$1"
+    local host port user pass
+    host="$(env_val SOAP_HOST 127.0.0.1)"
+    port="$(env_val SOAP_PORT 7878)"
+    user="$(env_val TC_SOAP_USER admin)"
+    pass="$(env_val TC_SOAP_PASSWORD admin)"
+
+    # XML-escape the command (&, <, >).
+    local esc
+    esc=$(printf '%s' "$console_cmd" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+
+    local body
+    body=$(cat <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:TC">
+  <SOAP-ENV:Body>
+    <ns1:executeCommand>
+      <command>${esc}</command>
+    </ns1:executeCommand>
+  </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+XML
+)
+
+    echo ">> ${console_cmd}"
+    local resp
+    if ! resp=$(curl -s --fail-with-body -u "${user}:${pass}" \
+            -H 'Content-Type: application/xml' \
+            -d "$body" "http://${host}:${port}/"); then
+        echo "error: SOAP request failed. Is SOAP enabled (TC_SOAP_ENABLED=1) and are the" >&2
+        echo "       TC_SOAP_USER/PASSWORD credentials a valid GM account?" >&2
+        [ -n "${resp:-}" ] && printf '%s\n' "$resp" >&2
+        exit 1
+    fi
+    # Pull the human-readable result out of the SOAP response, if present;
+    # fall back to the raw response otherwise.
+    local result
+    result=$(printf '%s' "$resp" \
+        | tr '\n' '\001' \
+        | sed -n 's:.*<result>\(.*\)</result>.*:\1:p' \
+        | tr '\001' '\n' \
+        | sed -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g')
+    if [ -n "$result" ]; then
+        printf '%s\n' "$result"
+    else
+        printf '%s\n' "$resp"
+    fi
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+    init)
+        if [ -f .env ]; then
+            echo ".env already exists -- leaving it untouched."
+        else
+            cp .env.example .env
+            echo "Created .env from .env.example. Edit it before building."
+        fi
+        ;;
+
+    build)
+        require_env
+        $COMPOSE build "$@"
+        ;;
+
+    extract)
+        require_env
+        $COMPOSE run --rm extractor "$@"
+        ;;
+
+    up)
+        require_env
+        $COMPOSE up -d "$@"
+        echo "Stack starting. Follow the world server with: ./tc logs"
+        ;;
+
+    down)
+        $COMPOSE down "$@"
+        ;;
+
+    destroy)
+        printf 'This DELETES the database volume (all accounts/characters). Continue? [y/N] '
+        read -r ans
+        [ "$ans" = "y" ] || [ "$ans" = "Y" ] || { echo "Aborted."; exit 0; }
+        $COMPOSE down -v "$@"
+        ;;
+
+    restart)
+        $COMPOSE restart "$@"
+        ;;
+
+    ps)
+        $COMPOSE ps "$@"
+        ;;
+
+    logs)
+        svc="${1:-worldserver}"
+        $COMPOSE logs -f "$svc"
+        ;;
+
+    console)
+        echo "Attaching to ${WORLD_CONTAINER}. Detach with Ctrl-p Ctrl-q (do NOT press Ctrl-c)."
+        docker attach "$WORLD_CONTAINER"
+        ;;
+
+    account)
+        name="${1:-}"; pass="${2:-}"; gm="${3:-}"
+        if [ -z "$name" ] || [ -z "$pass" ]; then
+            echo "usage: ./tc account <name> <pass> [gm-level 0-3]" >&2
+            exit 1
+        fi
+        soap_cmd "account create ${name} ${pass}"
+        if [ -n "$gm" ]; then
+            soap_cmd "account set gmlevel ${name} ${gm} -1"
+        fi
+        ;;
+
+    cmd)
+        line="${1:-}"
+        [ -z "$line" ] && { echo "usage: ./tc cmd \"<console command>\"" >&2; exit 1; }
+        soap_cmd "$line"
+        ;;
+
+    sql)
+        require_env
+        user="$(env_val TC_DB_USER trinity)"
+        pass="$(env_val TC_DB_PASSWORD trinity)"
+        $COMPOSE exec db mysql -u"$user" -p"$pass"
+        ;;
+
+    shell)
+        svc="${1:-worldserver}"
+        $COMPOSE exec "$svc" bash
+        ;;
+
+    help|-h|--help)
+        usage
+        ;;
+
+    *)
+        echo "error: unknown command '$cmd'" >&2
+        echo
+        usage
+        exit 1
+        ;;
+esac

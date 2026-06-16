@@ -47,31 +47,36 @@ Everything else (build, DB schema import, config) is automated.
 
 ## Quick start
 
+The `./tc` helper wraps the common Docker Compose operations. Run `./tc help`
+for the full list.
+
 ```bash
 # 1. Configure
-cp .env.example .env
+./tc init                 # copies .env.example -> .env
 #    Edit .env:
 #      - set TC_TDB_URL to the TDB release matching `master` (see below)
 #      - set WOW_CLIENT_DIR to your WoW client folder
 #      - change the default passwords
 
-# 2. Build the image + start MySQL (first build takes a while)
-docker compose build
-docker compose up -d db
+# 2. Build the image (first build takes a while)
+./tc build
 
 # 3. Extract client data from your WoW client (build 67823)
-WOW_CLIENT_DIR=/path/to/WoW docker compose run --rm extractor
+WOW_CLIENT_DIR=/path/to/WoW ./tc extract
 #    -> writes dbc/db2, maps, vmaps, mmaps, cameras into ./data
 
-# 4. Start the servers (worldserver imports the DBs on first run)
-docker compose up -d authserver worldserver
+# 4. Start the full stack (worldserver imports the DBs on first run)
+./tc up
 
 # 5. Watch the world server come up and import the database
-docker compose logs -f worldserver
+./tc logs
 ```
 
 First boot of `worldserver` will create the schema, import the TDB, and apply
 updates — this can take several minutes. Subsequent starts are fast.
+
+> Prefer raw Compose? Every `./tc` command maps to a `docker compose` call; see
+> the table in [The `tc` helper](#the-tc-helper) below.
 
 ---
 
@@ -112,16 +117,46 @@ CPU-intensive and can take a long time for a full extraction.
 
 ---
 
+## The `tc` helper
+
+`./tc <command>` is a thin wrapper around the stack:
+
+| Command | What it does |
+|---|---|
+| `./tc init` | Create `.env` from the template |
+| `./tc build` | Build the TrinityCore image |
+| `./tc extract` | Extract client data into `./data` |
+| `./tc up` | Start db + authserver + worldserver |
+| `./tc down` | Stop (keeps the DB volume) |
+| `./tc destroy` | Stop and **delete** the DB volume |
+| `./tc restart [svc]` | Restart all, or one service |
+| `./tc ps` | Service status |
+| `./tc logs [svc]` | Follow logs (default: worldserver) |
+| `./tc console` | Attach to the worldserver console |
+| `./tc account <name> <pass> [gm]` | Create an account via SOAP |
+| `./tc cmd "<command>"` | Run a console command via SOAP |
+| `./tc sql` | MySQL shell as the trinity user |
+| `./tc shell [svc]` | Bash shell in a container |
+
 ## Creating a game account
 
-Once `worldserver` is running, open its console and create an account:
+**Your first account must be created from the interactive console** (SOAP needs
+an existing GM account to authenticate):
 
 ```bash
-docker attach tc-worldserver
+./tc console
 # at the TC> prompt:
 account create <username> <password>
 account set gmlevel <username> 3 -1
-# detach without stopping: press Ctrl-p, Ctrl-q
+# detach WITHOUT stopping the server: press Ctrl-p, then Ctrl-q
+```
+
+After that first GM account exists, set `TC_SOAP_USER`/`TC_SOAP_PASSWORD` in
+`.env` to its credentials and you can script the rest over SOAP:
+
+```bash
+./tc account alice s3cret 3      # create + set gm level 3
+./tc cmd "server info"           # any console command
 ```
 
 Point your client's `realmlist.wtf` (or equivalent for retail builds) at the
@@ -159,6 +194,7 @@ preserved across versions.
 
 ```
 .
+├── tc                              # convenience CLI wrapper (./tc help)
 ├── docker-compose.yml              # the stack
 ├── .env.example                    # configuration template
 ├── docker/
