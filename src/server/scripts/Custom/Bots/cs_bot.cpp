@@ -43,12 +43,12 @@ private:
         std::string error;
         if (!sBotMgr->AddBot(name, error))
         {
-            handler->PSendSysMessage("Bot add failed: {}", error);
+            handler->PSendSysMessage("Bot add failed: %s", error.c_str());
             handler->SetSentErrorMessage(true);
             return false;
         }
 
-        handler->PSendSysMessage("Spawning bot '{}'...", name);
+        handler->PSendSysMessage("Spawning bot '%s'...", name.c_str());
         return true;
     }
 
@@ -57,18 +57,18 @@ private:
         std::string error;
         if (!sBotMgr->RemoveBot(name, error))
         {
-            handler->PSendSysMessage("Bot remove failed: {}", error);
+            handler->PSendSysMessage("Bot remove failed: %s", error.c_str());
             handler->SetSentErrorMessage(true);
             return false;
         }
 
-        handler->PSendSysMessage("Removed bot '{}'.", name);
+        handler->PSendSysMessage("Removed bot '%s'.", name.c_str());
         return true;
     }
 
     static bool HandleBotCountCommand(ChatHandler* handler)
     {
-        handler->PSendSysMessage("Active bots: {}", sBotMgr->GetBotCount());
+        handler->PSendSysMessage("Active bots: %u", uint32(sBotMgr->GetBotCount()));
         return true;
     }
 };
