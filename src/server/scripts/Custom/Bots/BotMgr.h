@@ -1,5 +1,5 @@
 /*
- * Player-bot overlay for TrinityCore (master) - Milestone 1.
+ * Player-bot support for TrinityCore (master) - Milestone 1.
  *
  * BotMgr owns "headless" WorldSessions: real WorldSession objects constructed
  * with a null WorldSocket. Because WorldSession::SendPacket() null-checks the
