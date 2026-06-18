@@ -1,5 +1,5 @@
 /*
- * Player-bot overlay for TrinityCore (master) - Milestone 1.
+ * Player-bot support for TrinityCore (master) - Milestone 1.
  *
  * Defines:
  *   - bot_commandscript : the ".bot add/remove/list" chat commands
@@ -89,7 +89,7 @@ public:
     }
 };
 
-// Registered from Custom/custom_script_loader.cpp (see overlay apply step).
+// Registered from Custom/custom_script_loader.cpp (see AddCustomScripts).
 void AddSC_bots()
 {
     new bot_commandscript();

@@ -1,5 +1,5 @@
 /*
- * Player-bot overlay for TrinityCore (master) - Milestone 1.
+ * Player-bot support for TrinityCore (master) - Milestone 1.
  * See BotMgr.h for the design rationale.
  */
 
