@@ -3320,6 +3320,39 @@ PlayerStart.AllSpells = 0
 PlayerStart.MapsExplored = 0
 
 #
+#    Inventory.AuthenticatorBackpackSlots
+#        Description: Grant every account the extra backpack slots that retail awards for
+#                     registering a Battle.net authenticator. When enabled, every character
+#                     is bumped to 20 backpack slots (16 base + 4 bonus) on login if it has
+#                     fewer. Larger backpacks (e.g. from future content) are left untouched.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Inventory.AuthenticatorBackpackSlots = 1
+
+#
+#    Collections.GrantPurchasableMounts
+#        Description: Grant every account, account-wide, the mounts that retail unlocks
+#                     outside of the game world: real-world purchasable mounts (In-Game Shop,
+#                     Trading Card Game) and promotional mounts such as the Recruit-A-Friend /
+#                     invite-a-friend starter mount. Mounts are granted on login based on the
+#                     source types listed in Collections.PurchasableMountSourceTypes.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantPurchasableMounts = 1
+
+#
+#    Collections.PurchasableMountSourceTypes
+#        Description: Comma-separated list of Mount.db2 SourceTypeEnum values that
+#                     Collections.GrantPurchasableMounts treats as "special" and grants to
+#                     every account. Known values: 5 = In-Game Shop, 8 = Promotion (includes
+#                     Recruit-A-Friend), 9 = Trading Card Game.
+#        Default:     "5,8,9"
+
+Collections.PurchasableMountSourceTypes = "5,8,9"
+
+#
 #    HonorPointsAfterDuel
 #        Description: Amount of honor points the duel winner will get after a duel.
 #        Default:     0  - (Disabled)
