@@ -41,6 +41,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/trinitycore-src
 COPY . /opt/trinitycore-src
 
+# Apply the player-bot overlay (Custom/Bots scripts + minimal, idempotent core
+# patches) onto the local source before configuring. Set BOTS_OVERLAY=0 to skip.
+ARG BOTS_OVERLAY=1
+RUN if [ "${BOTS_OVERLAY}" = "1" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends python3 \
+        && rm -rf /var/lib/apt/lists/* \
+        && /opt/trinitycore-src/overlay/apply-overlay.sh /opt/trinitycore-src ; \
+    fi
+
 RUN cmake -S /opt/trinitycore-src -B /opt/trinitycore-src/build \
         -DCMAKE_INSTALL_PREFIX=/opt/trinitycore \
         -DCMAKE_BUILD_TYPE=Release \

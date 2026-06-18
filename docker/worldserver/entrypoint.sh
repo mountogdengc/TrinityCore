@@ -30,6 +30,10 @@ UPDATES_AUTOSETUP="${TC_UPDATES_AUTOSETUP:-1}"
 # instead of re-applying (with AllowRehash=1). A fork's locally-modified SQL
 # tree otherwise triggers re-apply failures (e.g. duplicate-column errors).
 UPDATES_REDUNDANCY="${TC_UPDATES_REDUNDANCY:-0}"
+# SOAP remote console (used by ./tc account and ./tc cmd). Off unless enabled.
+SOAP_ENABLED="${TC_SOAP_ENABLED:-0}"
+SOAP_IP="${TC_SOAP_IP:-0.0.0.0}"
+SOAP_PORT="${TC_SOAP_PORT:-7878}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
@@ -72,6 +76,9 @@ set_conf "BindIP"                  "$BIND_IP"           "$CONF" quote
 set_conf "Updates.EnableDatabases" "$UPDATES_ENABLE"     "$CONF"
 set_conf "Updates.AutoSetup"       "$UPDATES_AUTOSETUP"  "$CONF"
 set_conf "Updates.Redundancy"      "$UPDATES_REDUNDANCY" "$CONF"
+set_conf "SOAP.Enabled"            "$SOAP_ENABLED"       "$CONF"
+set_conf "SOAP.IP"                 "$SOAP_IP"            "$CONF" quote
+set_conf "SOAP.Port"               "$SOAP_PORT"          "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.
