@@ -6,7 +6,9 @@ source /usr/local/lib/entrypoint-lib.sh
 ETC_DIR=/opt/trinitycore/etc
 CONF="${ETC_DIR}/worldserver.conf"
 DIST="${ETC_DIR}/worldserver.conf.dist"
-SQL_DIR=/opt/trinitycore-src/sql
+# The worldserver looks for the TDB full-import .sql in its working directory
+# (/opt/trinitycore), not the compiled-in source sql tree.
+SQL_DIR="${TC_TDB_DIR:-/opt/trinitycore}"
 
 # Connection / runtime settings (overridable via the environment).
 DB_HOST="${TC_DB_HOST:-db}"
@@ -16,26 +18,39 @@ DB_PASS="${TC_DB_PASSWORD:-trinity}"
 AUTH_DB="${TC_AUTH_DB:-auth}"
 CHAR_DB="${TC_CHARACTERS_DB:-characters}"
 WORLD_DB="${TC_WORLD_DB:-world}"
+HOTFIX_DB="${TC_HOTFIX_DB:-hotfixes}"
 DATA_DIR="${TC_DATA_DIR:-/data}"
 LOGS_DIR="${TC_LOGS_DIR:-/opt/trinitycore/logs}"
 BIND_IP="${TC_BIND_IP:-0.0.0.0}"
-# DB auto-updater bitmask: 1=auth 2=characters 4=world -> 7=all.
-UPDATES_ENABLE="${TC_UPDATES_ENABLE_DATABASES:-7}"
+# DB auto-updater bitmask: 1=auth 2=characters 4=world 8=hotfixes -> 15=all.
+# Retail/master adds the hotfixes database; legacy branches use 7.
+UPDATES_ENABLE="${TC_UPDATES_ENABLE_DATABASES:-15}"
 UPDATES_AUTOSETUP="${TC_UPDATES_AUTOSETUP:-1}"
+# Redundancy=0: when a previously-applied update file's hash changed, rehash it
+# instead of re-applying (with AllowRehash=1). A fork's locally-modified SQL
+# tree otherwise triggers re-apply failures (e.g. duplicate-column errors).
+UPDATES_REDUNDANCY="${TC_UPDATES_REDUNDANCY:-0}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
 # Optionally download + extract the TDB (full world DB) so the auto-updater can
 # import it into an empty `world` database on first launch.
 if [ -n "${TC_TDB_URL:-}" ]; then
-    if ! ls "${SQL_DIR}"/TDB_full_world_*.sql >/dev/null 2>&1; then
+    if ! ls "${SQL_DIR}"/TDB_full_world_*.sql >/dev/null 2>&1 \
+       || ! ls "${SQL_DIR}"/TDB_full_hotfixes_*.sql >/dev/null 2>&1; then
         log "Downloading TDB from ${TC_TDB_URL}"
         tmp=$(mktemp -d)
-        curl -fSL "$TC_TDB_URL" -o "${tmp}/tdb.7z"
-        7z e -y -o"${tmp}" "${tmp}/tdb.7z" >/dev/null
-        cp "${tmp}"/TDB_full_world_*.sql "${SQL_DIR}/"
+        # Non-fatal: if the download fails (e.g. no network/DNS) but the
+        # databases are already populated, the worldserver still boots fine.
+        if curl -fSL "$TC_TDB_URL" -o "${tmp}/tdb.7z"; then
+            7z e -y -o"${tmp}" "${tmp}/tdb.7z" >/dev/null
+            cp "${tmp}"/TDB_full_world_*.sql "${SQL_DIR}/" 2>/dev/null || true
+            cp "${tmp}"/TDB_full_hotfixes_*.sql "${SQL_DIR}/" 2>/dev/null || true
+            log "TDB (world + hotfixes) placed in ${SQL_DIR}."
+        else
+            log "WARNING: TDB download failed (network/DNS). Continuing with existing databases."
+        fi
         rm -rf "$tmp"
-        log "TDB placed in ${SQL_DIR}."
     else
         log "TDB already present in ${SQL_DIR}, skipping download."
     fi
@@ -50,11 +65,13 @@ fi
 set_conf "LoginDatabaseInfo"     "$(db_info "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$AUTH_DB")"  "$CONF" quote
 set_conf "WorldDatabaseInfo"     "$(db_info "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$WORLD_DB")" "$CONF" quote
 set_conf "CharacterDatabaseInfo" "$(db_info "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$CHAR_DB")"  "$CONF" quote
+set_conf "HotfixDatabaseInfo"    "$(db_info "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$HOTFIX_DB")" "$CONF" quote
 set_conf "DataDir"                 "$DATA_DIR"          "$CONF" quote
 set_conf "LogsDir"                 "$LOGS_DIR"          "$CONF" quote
 set_conf "BindIP"                  "$BIND_IP"           "$CONF" quote
-set_conf "Updates.EnableDatabases" "$UPDATES_ENABLE"    "$CONF"
-set_conf "Updates.AutoSetup"       "$UPDATES_AUTOSETUP" "$CONF"
+set_conf "Updates.EnableDatabases" "$UPDATES_ENABLE"     "$CONF"
+set_conf "Updates.AutoSetup"       "$UPDATES_AUTOSETUP"  "$CONF"
+set_conf "Updates.Redundancy"      "$UPDATES_REDUNDANCY" "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.

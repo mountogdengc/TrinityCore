@@ -13,6 +13,7 @@ services:
       TC_AUTH_DB: ${TC_AUTH_DB:-auth}
       TC_CHARACTERS_DB: ${TC_CHARACTERS_DB:-characters}
       TC_WORLD_DB: ${TC_WORLD_DB:-world}
+      TC_HOTFIX_DB: ${TC_HOTFIX_DB:-hotfixes}
     volumes:
       - db-data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
@@ -24,14 +25,14 @@ services:
     ports:
       - "${MYSQL_PORT:-3306}:3306"
 
-  authserver:
+  bnetserver:
     build:
       context: .
       dockerfile: docker/trinitycore/Dockerfile
       args:
         BUILD_JOBS: ${BUILD_JOBS:-}
     image: trinitycore:local
-    container_name: tc-authserver
+    container_name: tc-bnetserver
     restart: unless-stopped
     depends_on:
       db:
@@ -42,22 +43,25 @@ services:
       TC_DB_USER: ${TC_DB_USER:-trinity}
       TC_DB_PASSWORD: ${TC_DB_PASSWORD:-trinity}
       TC_AUTH_DB: ${TC_AUTH_DB:-auth}
-    entrypoint: ["/usr/local/bin/authserver-entrypoint.sh"]
+      TC_LOGIN_REST_PORT: ${LOGIN_REST_PORT:-8081}
+    entrypoint: ["/usr/local/bin/bnetserver-entrypoint.sh"]
     volumes:
       - logs:/opt/trinitycore/logs
+      # Live-mount entrypoints so logic changes apply on restart (no rebuild).
+      - ./docker/bnetserver/entrypoint.sh:/usr/local/bin/bnetserver-entrypoint.sh:ro
+      - ./docker/common/entrypoint-lib.sh:/usr/local/lib/entrypoint-lib.sh:ro
     ports:
-      - "${AUTH_PORT:-3724}:3724"
+      - "${BNET_PORT:-1119}:1119"
+      - "${LOGIN_REST_PORT:-8081}:8081"
 
   worldserver:
-    # Reuses the image built by the authserver service.
+    # Reuses the image built by the bnetserver service.
     image: trinitycore:local
     container_name: tc-worldserver
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-      authserver:
-        condition: service_started
     environment:
       TC_DB_HOST: db
       TC_DB_PORT: 3306
@@ -66,6 +70,7 @@ services:
       TC_AUTH_DB: ${TC_AUTH_DB:-auth}
       TC_CHARACTERS_DB: ${TC_CHARACTERS_DB:-characters}
       TC_WORLD_DB: ${TC_WORLD_DB:-world}
+      TC_HOTFIX_DB: ${TC_HOTFIX_DB:-hotfixes}
       TC_DATA_DIR: /data
       # Set TC_TDB_URL to auto-download the matching TDB release on first run.
       TC_TDB_URL: ${TC_TDB_URL:-}
@@ -74,8 +79,13 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - ./data:/data
+      # Map data lives in a named volume (WSL2 fs) — Windows bind mounts are
+      # ~500x slower for the many small map/vmap/mmap files. See `data` below.
+      - data:/data
       - logs:/opt/trinitycore/logs
+      # Live-mount entrypoints so logic changes apply on restart (no rebuild).
+      - ./docker/worldserver/entrypoint.sh:/usr/local/bin/worldserver-entrypoint.sh:ro
+      - ./docker/common/entrypoint-lib.sh:/usr/local/lib/entrypoint-lib.sh:ro
     ports:
       - "${WORLD_PORT:-8085}:8085"
 
@@ -88,7 +98,7 @@ services:
     working_dir: /wow
     volumes:
       - ${WOW_CLIENT_DIR:-./wow-client}:/wow
-      - ./data:/out
+      - data:/out
       - ./scripts/extract-client-data.sh:/data/extract-client-data.sh:ro
     environment:
       OUTPUT_DIR: /out
@@ -96,3 +106,8 @@ services:
 volumes:
   db-data:
   logs:
+  # Pre-populated from ./data; external so `docker compose down -v` won't wipe
+  # the ~24GB of extracted client data. Repopulate via the extractor if needed.
+  data:
+    external: true
+    name: trinitycore_data

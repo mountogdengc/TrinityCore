@@ -23,3 +23,11 @@ nbproject/*
 cmake-build-*/*
 .vs
 *.user
+
+# Docker wrapper: local config, secrets, and large extracted/archived data
+.env
+/data/
+/data.tar
+*.7z
+/wow-client/
+/.codex/

@@ -51,3 +51,16 @@ wait_for_tcp() {
     done
     log "${label} is reachable."
 }
+
+# wait_for_table <host> <port> <user> <pass> <db> <table>
+# Blocks until <db>.<table> exists. The worldserver auto-updater creates the
+# auth schema on first boot, so bnetserver must wait for it before starting.
+wait_for_table() {
+    local host="$1" port="$2" user="$3" pass="$4" db="$5" table="$6"
+    log "Waiting for table ${db}.${table} ..."
+    until [ "$(mysql -h "$host" -P "$port" -u "$user" -p"$pass" -N -B \
+        -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${db}' AND table_name='${table}';" 2>/dev/null)" = "1" ]; do
+        sleep 3
+    done
+    log "Table ${db}.${table} is present."
+}

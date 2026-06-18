@@ -66,6 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         p7zip-full \
         netcat-openbsd \
         default-mysql-client \
+        libmysqlclient21 \
         tzdata \
         libssl3 \
         zlib1g \
@@ -93,8 +94,8 @@ ENV PATH="/opt/trinitycore/bin:${PATH}"
 
 # Shared entrypoint helpers + per-service entrypoints.
 COPY docker/common/entrypoint-lib.sh /usr/local/lib/entrypoint-lib.sh
-COPY docker/authserver/entrypoint.sh /usr/local/bin/authserver-entrypoint.sh
+COPY docker/bnetserver/entrypoint.sh /usr/local/bin/bnetserver-entrypoint.sh
 COPY docker/worldserver/entrypoint.sh /usr/local/bin/worldserver-entrypoint.sh
-RUN chmod +x /usr/local/bin/authserver-entrypoint.sh /usr/local/bin/worldserver-entrypoint.sh
+RUN chmod +x /usr/local/bin/bnetserver-entrypoint.sh /usr/local/bin/worldserver-entrypoint.sh
 
 WORKDIR /opt/trinitycore
