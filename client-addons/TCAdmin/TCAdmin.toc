@@ -1,0 +1,10 @@
+## Interface: 120005
+## Title: TC Admin Menu
+## Notes: In-game menu of TrinityCore GM/admin commands over the native addon command channel.
+## Author: TrinityCore deployment
+## Version: 1.0
+## SavedVariables: TCAdminDB
+
+Commands.lua
+Core.lua
+UI.lua

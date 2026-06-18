@@ -1,96 +1,263 @@
-# ![logo](https://community.trinitycore.org/public/style_images/1_trinitycore.png) TrinityCore (master)
+# TrinityCore Emulator — Docker Compose Deployment
 
-[![Average time to resolve an issue](https://isitmaintained.com/badge/resolution/TrinityCore/TrinityCore.svg)](https://isitmaintained.com/project/TrinityCore/TrinityCore "Average time to resolve an issue") [![Percentage of issues still open](https://isitmaintained.com/badge/open/TrinityCore/TrinityCore.svg)](https://isitmaintained.com/project/TrinityCore/TrinityCore "Percentage of issues still open")
+A reproducible [Docker Compose](https://docs.docker.com/compose/) stack that
+builds and runs a [TrinityCore](https://www.trinitycore.org/) World of Warcraft
+server (the **`master`** branch, which targets the **current retail client** —
+e.g. **12.0.5, build 67823**).
 
---------------
+The stack runs three services:
 
+| Service       | Role                                   | Port  |
+|---------------|----------------------------------------|-------|
+| `db`          | MySQL 8.0 (auth/characters/world DBs)  | 3306  |
+| `authserver`  | Login / realm server                   | 3724  |
+| `worldserver` | Game world server (+ console)          | 8085  |
 
-* [Build Status](#build-status)
-* [Introduction](#introduction)
-* [Requirements](#requirements)
-* [Install](#install)
-* [Reporting issues](#reporting-issues)
-* [Submitting fixes](#submitting-fixes)
-* [Copyright](#copyright)
-* [Authors &amp; Contributors](#authors--contributors)
-* [Links](#links)
+A multi-stage image compiles `worldserver`, `authserver` and the data-extraction
+tools from source. The MySQL databases are populated automatically on first
+launch by TrinityCore's built-in database auto-updater.
 
+---
 
+## ⚠️ What you must provide yourself
 
-## Build Status
+Two things cannot be shipped in this repo and are required to run a *playable*
+server:
 
-master | 3.3.5 | cata_classic
-:------------: | :------------: | :------------:
-[![master Build Status](https://circleci.com/gh/TrinityCore/TrinityCore/tree/master.svg?style=shield)](https://circleci.com/gh/TrinityCore/TrinityCore/tree/master) | [![3.3.5 Build Status](https://circleci.com/gh/TrinityCore/TrinityCore/tree/3.3.5.svg?style=shield)](https://circleci.com/gh/TrinityCore/TrinityCore/tree/3.3.5) | [![cata_classic Build Status](https://circleci.com/gh/TrinityCore/TrinityCore/tree/cata_classic.svg?style=shield)](https://circleci.com/gh/TrinityCore/TrinityCore/tree/cata_classic)
-[![master Build status](https://ci.appveyor.com/api/projects/status/54d0u1fxe50ad80o/branch/master?svg=true)](https://ci.appveyor.com/project/DDuarte/trinitycore/branch/master) | [![Build status](https://ci.appveyor.com/api/projects/status/54d0u1fxe50ad80o/branch/3.3.5?svg=true)](https://ci.appveyor.com/project/DDuarte/trinitycore/branch/3.3.5) | [![Build status](https://ci.appveyor.com/api/projects/status/54d0u1fxe50ad80o/branch/cata_classic?svg=true)](https://ci.appveyor.com/project/DDuarte/trinitycore/branch/cata_classic)
-[![master GCC Build status](https://github.com/TrinityCore/TrinityCore/actions/workflows/gcc-build.yml/badge.svg?branch=master&event=push)](https://github.com/TrinityCore/TrinityCore/actions?query=workflow%3AGCC+branch%3Amaster+event%3Apush) | [![3.3.5 GCC Build status](https://github.com/TrinityCore/TrinityCore/actions/workflows/gcc-build.yml/badge.svg?branch=3.3.5&event=push)](https://github.com/TrinityCore/TrinityCore/actions?query=workflow%3AGCC+branch%3A3.3.5+event%3Apush) | [![cata_classic GCC Build status](https://github.com/TrinityCore/TrinityCore/actions/workflows/gcc-build.yml/badge.svg?branch=cata_classic&event=push)](https://github.com/TrinityCore/TrinityCore/actions?query=workflow%3AGCC+branch%3Acata_classic+event%3Apush)
-[![master macOS arm64 Build status](https://github.com/TrinityCore/TrinityCore/actions/workflows/macos-arm-build.yml/badge.svg?branch=master&event=push)](https://github.com/TrinityCore/TrinityCore/actions?query=workflow%3AGCC+branch%3Amaster+event%3Apush) | | [![cata_classic macOS arm64 Build status](https://github.com/TrinityCore/TrinityCore/actions/workflows/macos-arm-build.yml/badge.svg?branch=cata_classic&event=push)](https://github.com/TrinityCore/TrinityCore/actions?query=workflow%3AGCC+branch%3Acata_classic+event%3Apush)
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/435/badge.svg)](https://scan.coverity.com/projects/435) | [![Coverity Scan Build Status](https://scan.coverity.com/projects/4656/badge.svg)](https://scan.coverity.com/projects/4656) |
+1. **A retail WoW client** matching the `master` branch (you have **12.0.5,
+   build 67823** — good). Blizzard client files are copyrighted and never
+   redistributed here.
+2. **Extracted client data** (dbc/db2, maps, vmaps, mmaps, cameras), generated
+   from *your* client with the bundled extractor tools. The worldserver will not
+   start without it.
 
-## Introduction
+Everything else (build, DB schema import, config) is automated.
 
-TrinityCore is a *MMORPG* Framework based mostly in C++.
+---
 
-It is derived from *MaNGOS*, the *Massive Network Game Object Server*, and is
-based on the code of that project with extensive changes over time to optimize,
-improve and cleanup the codebase at the same time as improving the in-game
-mechanics and functionality.
+## Prerequisites
 
-It is completely open source; community involvement is highly encouraged.
+- Docker Engine + the Docker Compose plugin (`docker compose`).
+- ~**8 GB RAM** recommended for the build, and significant disk (the source
+  build + extracted retail data is large; budget tens of GB).
+- A good internet connection (the build clones TrinityCore and downloads the
+  TDB world database).
 
-If you wish to contribute ideas or code, please visit our site linked below or
-make pull requests to our [Github repository](https://github.com/TrinityCore/TrinityCore/pulls).
+---
 
-For further information on the TrinityCore project, please visit our project
-website at [TrinityCore.org](https://www.trinitycore.org).
+## Quick start
 
-## Requirements
+The `./tc` helper wraps the common Docker Compose operations. Run `./tc help`
+for the full list.
 
+```bash
+# 1. Configure
+./tc init                 # copies .env.example -> .env
+#    Edit .env:
+#      - set TC_TDB_URL to the TDB release matching `master` (see below)
+#      - set WOW_CLIENT_DIR to your WoW client folder
+#      - change the default passwords
 
-Software requirements are available in the [wiki](https://trinitycore.info/en/install/requirements) for
-Windows, Linux and macOS.
+# 2. Build the image (first build takes a while)
+./tc build
 
+# 3. Extract client data from your WoW client (build 67823)
+WOW_CLIENT_DIR=/path/to/WoW ./tc extract
+#    -> writes dbc/db2, maps, vmaps, mmaps, cameras into ./data
 
-## Install
+# 4. Start the full stack (worldserver imports the DBs on first run)
+./tc up
 
-Detailed installation guides are available in the [wiki](https://trinitycore.info/en/home) for
-Windows, Linux and macOS.
+# 5. Watch the world server come up and import the database
+./tc logs
+```
 
+First boot of `worldserver` will create the schema, import the TDB, and apply
+updates — this can take several minutes. Subsequent starts are fast.
 
-## Reporting issues
+> Prefer raw Compose? Every `./tc` command maps to a `docker compose` call; see
+> the table in [The `tc` helper](#the-tc-helper) below.
 
-Issues can be reported via the [Github issue tracker](https://github.com/TrinityCore/TrinityCore/labels/Branch-master).
+---
 
-Please take the time to review existing issues before submitting your own to
-prevent duplicates.
+## Choosing the right TDB (world database)
 
-In addition, thoroughly read through the [issue tracker guide](https://community.trinitycore.org/topic/37-the-trinitycore-issuetracker-and-you/) to ensure
-your report contains the required information. Incorrect or poorly formed
-reports are wasteful and are subject to deletion.
+The full world database (creatures, quests, gameobjects, …) ships as a **TDB**
+release that must match your branch. Pick the asset from the
+[TrinityCore releases page](https://github.com/TrinityCore/TrinityCore/releases)
+and set it in `.env`:
 
+```env
+TC_TDB_URL=https://github.com/TrinityCore/TrinityCore/releases/download/TDB<ver>/TDB_full_world_<ver>_<date>.7z
+```
 
-## Submitting fixes
+On first launch the worldserver downloads the `.7z`, extracts the `.sql` into
+the source `sql/` tree, and the auto-updater imports it into the empty `world`
+database. If you leave `TC_TDB_URL` empty, you must import a world database
+yourself.
 
-C++ fixes are submitted as pull requests via Github. For more information on how to
-properly submit a pull request, read the [how-to: maintain a remote fork](https://community.trinitycore.org/topic/9002-howto-maintain-a-remote-fork-for-pull-requests-tortoisegit/).
-For SQL only fixes, open a ticket; if a bug report exists for the bug, post on an existing ticket.
+---
 
+## Extracting client data
 
-## Copyright
+The `extractor` service (Compose profile `tools`) runs the official extraction
+sequence against a mounted client:
 
-License: GPL 2.0
+```bash
+WOW_CLIENT_DIR=/path/to/WoW docker compose run --rm extractor
+```
 
-Read file [COPYING](COPYING).
+This runs, in order: `mapextractor` → `vmap4extractor` →
+`vmap4assembler` → `mmaps_generator`, and moves the results into `./data`
+(mounted at `/data` in the worldserver as `DataDir`). `mmaps_generator` is
+CPU-intensive and can take a long time for a full extraction.
 
+> The tools write intermediate output into the client folder, so mount a client
+> you can write to. See `scripts/extract-client-data.sh`.
 
-## Authors &amp; Contributors
+---
 
-Read file [AUTHORS](AUTHORS).
+## The `tc` helper
 
+`./tc <command>` is a thin wrapper around the stack:
 
-## Links
+| Command | What it does |
+|---|---|
+| `./tc init` | Create `.env` from the template |
+| `./tc build` | Build the TrinityCore image |
+| `./tc extract` | Extract client data into `./data` |
+| `./tc up` | Start db + authserver + worldserver |
+| `./tc down` | Stop (keeps the DB volume) |
+| `./tc destroy` | Stop and **delete** the DB volume |
+| `./tc restart [svc]` | Restart all, or one service |
+| `./tc ps` | Service status |
+| `./tc logs [svc]` | Follow logs (default: worldserver) |
+| `./tc console` | Attach to the worldserver console |
+| `./tc account <name> <pass> [gm]` | Create an account via SOAP |
+| `./tc cmd "<command>"` | Run a console command via SOAP |
+| `./tc sql` | MySQL shell as the trinity user |
+| `./tc shell [svc]` | Bash shell in a container |
 
-* [Website](https://www.trinitycore.org)
-* [Wiki](https://www.trinitycore.info)
-* [Forums](https://talk.trinitycore.org/)
-* [Discord](https://discord.trinitycore.org/)
+## Creating a game account
+
+**Your first account must be created from the interactive console** (SOAP needs
+an existing GM account to authenticate):
+
+```bash
+./tc console
+# at the TC> prompt:
+account create <username> <password>
+account set gmlevel <username> 3 -1
+# detach WITHOUT stopping the server: press Ctrl-p, then Ctrl-q
+```
+
+After that first GM account exists, set `TC_SOAP_USER`/`TC_SOAP_PASSWORD` in
+`.env` to its credentials and you can script the rest over SOAP:
+
+```bash
+./tc account alice s3cret 3      # create + set gm level 3
+./tc cmd "server info"           # any console command
+```
+
+Point your client's `realmlist.wtf` (or equivalent for retail builds) at the
+host running `authserver`. By default the `realmlist` table in the `auth`
+database points realms at `127.0.0.1`; update it for LAN/remote play:
+
+```sql
+-- connect to the auth DB and set your server's reachable address
+UPDATE realmlist SET address = '<server-ip>' WHERE id = 1;
+```
+
+---
+
+## In-game admin menu addon
+
+`client-addons/TCAdmin/` is a client addon that gives you an in-game window of
+GM commands (teleport, items, NPC spawn, server controls, …). Clicking a button
+runs the command on the server and streams the output back.
+
+It uses TrinityCore's **native addon command channel** (addon prefix
+`TrinityCore`), so the server enforces your account's GM permissions and **no
+worldserver rebuild is required**. Copy the folder to
+`<WoW client>/Interface/AddOns/TCAdmin/`, log in on a GM account, and type
+`/tca`. See [`client-addons/TCAdmin/README.md`](client-addons/TCAdmin/README.md)
+for details and how to customise the command list.
+
+> The addon channel is enabled by default (`Addon.Channel = 1` in
+> `worldserver.conf`); the deployment keeps that default.
+
+## Configuration
+
+All tunables live in `.env` (copied from `.env.example`). The container
+entrypoints generate `worldserver.conf` / `authserver.conf` from the installed
+`.dist` templates and override only the connection, data-dir, logging and
+auto-updater settings from the environment — so upstream config defaults are
+preserved across versions.
+
+| Variable                    | Default      | Purpose                                  |
+|-----------------------------|--------------|------------------------------------------|
+| `TC_BRANCH`                 | `master`     | TrinityCore branch to build              |
+| `BUILD_JOBS`                | all cores    | Cap parallel compile jobs (RAM control)  |
+| `MYSQL_ROOT_PASSWORD`       | `rootpass`   | MySQL root password                      |
+| `TC_DB_USER` / `_PASSWORD`  | `trinity`    | Server DB account                        |
+| `TC_TDB_URL`                | _(empty)_    | TDB world DB download URL                 |
+| `WOW_CLIENT_DIR`            | `./wow-client` | Path to your WoW client                |
+| `MYSQL_PORT` / `AUTH_PORT` / `WORLD_PORT` | 3306 / 3724 / 8085 | Host port mappings    |
+
+---
+
+## Repository layout
+
+```
+.
+├── tc                              # convenience CLI wrapper (./tc help)
+├── docker-compose.yml              # the stack
+├── .env.example                    # configuration template
+├── docker/
+│   ├── trinitycore/Dockerfile      # multi-stage build (servers + tools)
+│   ├── common/entrypoint-lib.sh    # shared entrypoint helpers
+│   ├── authserver/entrypoint.sh    # authserver config + launch
+│   ├── worldserver/entrypoint.sh   # worldserver config, TDB, launch
+│   └── mysql/init/                 # DB + user bootstrap (first init only)
+├── scripts/
+│   └── extract-client-data.sh      # client data extraction
+├── client-addons/
+│   └── TCAdmin/                    # in-game GM/admin command menu addon
+└── data/                           # extracted client data (gitignored)
+```
+
+---
+
+## Common operations
+
+```bash
+docker compose ps                       # status
+docker compose logs -f worldserver      # follow world server logs
+docker compose down                     # stop (keeps volumes/DB)
+docker compose down -v                  # stop and DELETE the database volume
+docker compose build --no-cache authserver   # rebuild from scratch
+```
+
+---
+
+## Troubleshooting
+
+- **worldserver exits / "maps not found":** client data isn't in `./data`. Run
+  the extractor step.
+- **DB connection refused:** the first MySQL init takes a moment; the servers
+  wait for it, but a fresh build also needs the init script to finish. Check
+  `docker compose logs db`.
+- **TDB import skipped:** ensure `TC_TDB_URL` points at a `.7z` whose version
+  matches your branch; delete the `world` database (`docker compose down -v`) to
+  re-trigger a clean import.
+- **Out of memory during build:** set `BUILD_JOBS` (e.g. `4`) in `.env`.
+
+---
+
+## Legal
+
+TrinityCore is licensed under the GPL v2. World of Warcraft and its client data
+are © Blizzard Entertainment. This repository contains **no** Blizzard
+intellectual property; you must supply your own legally-obtained client. Running
+a private server may violate Blizzard's Terms of Service — use at your own risk
+and for educational/private purposes only.

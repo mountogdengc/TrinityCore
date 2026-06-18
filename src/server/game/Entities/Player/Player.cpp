@@ -18186,7 +18186,11 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
     }
 
     SetCustomizations(Trinity::Containers::MakeIteratorPair(customizations.begin(), customizations.end()), false);
-    SetInventorySlotCount(fields.inventorySlots);
+    uint8 inventorySlots = fields.inventorySlots;
+    // Grant the extra backpack slots that retail awards for registering an authenticator to every account
+    if (sWorld->getBoolConfig(CONFIG_INVENTORY_AUTHENTICATOR_BACKPACK_SLOTS))
+        inventorySlots = std::max<uint8>(inventorySlots, AUTHENTICATOR_BACKPACK_SLOTS);
+    SetInventorySlotCount(inventorySlots);
     SetBackpackAutoSortDisabled(fields.inventoryBagFlags.HasFlag(BagSlotFlags::DisableAutoSort));
     SetBackpackSellJunkDisabled(fields.inventoryBagFlags.HasFlag(BagSlotFlags::ExcludeJunkSell));
     for (uint32 bagIndex = 0; bagIndex < fields.bagSlotFlags.size(); ++bagIndex)
