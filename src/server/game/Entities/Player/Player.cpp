@@ -2938,12 +2938,9 @@ bool Player::AddSpell(uint32 spellId, bool active, bool learning, bool dependent
             if (traitDefinition->OverridesSpellID)
                 AddOverrideSpell(traitDefinition->OverridesSpellID, spellId);
 
-    // update free primary prof.points (if any, can be none in case GM .learn prof. learning)
-    if (uint32 freeProfs = GetFreePrimaryProfessionPoints())
-    {
-        if (spellInfo->IsPrimaryProfessionFirstRank())
-            SetFreePrimaryProfessions(freeProfs - 1);
-    }
+    // Free primary profession points are recomputed from the professions actually known in
+    // Player::UpdateFreePrimaryProfessionPoints (invoked from Player::SetSkill once the
+    // profession's skill is added below), so a profession always costs exactly one point.
 
     SkillLineAbilityMapBounds skill_bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
 
@@ -3203,15 +3200,8 @@ void Player::RemoveSpell(uint32 spell_id, bool disabled /*= false*/, bool learn_
         if (PetAura const* petSpell = sSpellMgr->GetPetAura(spell_id, i))
             RemovePetAura(petSpell);
 
-    // update free primary prof.points (if not overflow setting, can be in case GM use before .learn prof. learning)
-    if (spellInfo->IsPrimaryProfessionFirstRank())
-    {
-        uint32 freeProfs = GetFreePrimaryProfessionPoints()+1;
-        if (freeProfs <= sWorld->getIntConfig(CONFIG_MAX_PRIMARY_TRADE_SKILL))
-            SetFreePrimaryProfessions(freeProfs);
-    }
-
     // remove dependent skill
+    // (free primary profession points are recomputed from known professions in Player::SetSkill)
     SpellLearnSkillNode const* spellLearnSkill = sSpellMgr->GetSpellLearnSkill(spell_id);
     if (spellLearnSkill)
     {
@@ -5875,6 +5865,11 @@ void Player::SetSkill(uint32 id, uint16 step, uint16 newVal, uint16 maxVal)
             UpdateCriteria(CriteriaType::AchieveSkillStep, id);
         }
     }
+
+    // Keep the free primary profession allowance in sync whenever a primary profession is
+    // gained or lost (gathering and production professions alike).
+    if (IsPrimaryProfessionSkill(id))
+        UpdateFreePrimaryProfessionPoints();
 }
 
 uint32 Player::GetProfessionSkillForExp(uint32 skill, int32 expansion) const
@@ -24788,6 +24783,23 @@ void Player::InitPrimaryProfessions()
     SetFreePrimaryProfessions(sWorld->getIntConfig(CONFIG_MAX_PRIMARY_TRADE_SKILL));
 }
 
+void Player::UpdateFreePrimaryProfessionPoints()
+{
+    // Derive the number of free primary profession slots from the professions actually known
+    // instead of maintaining a counter with per-spell increments/decrements. Both gathering and
+    // production professions count; child/expansion skill lines and secondary skills (cooking,
+    // fishing, ...) do not. Recomputing here keeps the value correct even when a profession's
+    // learn chain triggers more than one primary-profession spell (which previously over-spent
+    // the allowance and could block learning a second profession).
+    uint32 usedProfessions = 0;
+    for (auto const& [skillId, skillStatus] : mSkillStatus)
+        if (skillStatus.uState != SKILL_DELETED && GetSkillRankByPos(skillStatus.pos) && IsPrimaryProfessionSkill(skillId))
+            ++usedProfessions;
+
+    uint32 maxProfessions = sWorld->getIntConfig(CONFIG_MAX_PRIMARY_TRADE_SKILL);
+    SetFreePrimaryProfessions(maxProfessions > usedProfessions ? uint16(maxProfessions - usedProfessions) : uint16(0));
+}
+
 bool Player::ModifyMoney(int64 amount, bool sendError /*= true*/)
 {
     if (!amount)
@@ -27359,6 +27371,10 @@ void Player::_LoadSkills(PreparedQueryResult result)
 
     if (HasSkill(SKILL_FIST_WEAPONS))
         SetSkill(SKILL_FIST_WEAPONS, 0, GetSkillValue(SKILL_UNARMED), GetMaxSkillValueForLevel());
+
+    // Recompute the free primary profession allowance from the loaded professions so it is
+    // correct on login regardless of any drift in the previously stored counter.
+    UpdateFreePrimaryProfessionPoints();
 }
 
 InventoryResult Player::CanEquipUniqueItem(Item* pItem, uint8 eslot, uint32 limit_count) const
