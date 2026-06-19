@@ -111,13 +111,17 @@ CollectionMgr::~CollectionMgr() = default;
 void CollectionMgr::LoadCharacterData()
 {
     LoadToys();
+    GrantAllToys();
     LoadHeirlooms();
+    GrantAllHeirlooms();
     LoadMounts();
     GrantSpecialMounts();
     LoadItemAppearances();
+    GrantAllAppearances();
     LoadTransmogIllusions();
     LoadTransmogOutfits();
     LoadWarbandScenes();
+    GrantAllWarbandScenes();
 }
 
 void CollectionMgr::SaveToDB(LoginDatabaseTransaction trans)
@@ -479,6 +483,63 @@ bool CollectionMgr::AddMount(uint32 spellId, MountStatusFlags flags, bool factio
     }
 
     return true;
+}
+
+// Grants the full toy box account-wide.
+void CollectionMgr::GrantAllToys()
+{
+    if (!sWorld->getBoolConfig(CONFIG_COLLECTIONS_GRANT_ALL_TOYS))
+        return;
+
+    if (!_owner->GetPlayer())
+        return;
+
+    for (ToyEntry const* toy : sToyStore)
+        if (!HasToy(toy->ItemID))
+            AddToy(toy->ItemID, false, false);
+}
+
+// Grants every heirloom account-wide (at its base, non-upgraded level).
+void CollectionMgr::GrantAllHeirlooms()
+{
+    if (!sWorld->getBoolConfig(CONFIG_COLLECTIONS_GRANT_ALL_HEIRLOOMS))
+        return;
+
+    if (!_owner->GetPlayer())
+        return;
+
+    for (HeirloomEntry const* heirloom : sHeirloomStore)
+        if (!HasHeirloom(heirloom->ItemID))
+            AddHeirloom(heirloom->ItemID, 0);
+}
+
+// Grants every collectable transmog/item appearance account-wide. This is a large, one-time
+// unlock per account (the appearances are persisted, so subsequent logins skip already-known ones).
+void CollectionMgr::GrantAllAppearances()
+{
+    if (!sWorld->getBoolConfig(CONFIG_COLLECTIONS_GRANT_ALL_APPEARANCES))
+        return;
+
+    if (!_owner->GetPlayer())
+        return;
+
+    for (ItemModifiedAppearanceEntry const* itemModifiedAppearance : sItemModifiedAppearanceStore)
+        if (CanAddAppearance(itemModifiedAppearance))
+            AddItemAppearance(itemModifiedAppearance);
+}
+
+// Grants every warband scene (campsite) account-wide.
+void CollectionMgr::GrantAllWarbandScenes()
+{
+    if (!sWorld->getBoolConfig(CONFIG_COLLECTIONS_GRANT_ALL_WARBAND_SCENES))
+        return;
+
+    if (!_owner->GetPlayer())
+        return;
+
+    for (WarbandSceneEntry const* warbandScene : sWarbandSceneStore)
+        if (!HasWarbandScene(warbandScene->ID))
+            AddWarbandScene(warbandScene->ID);
 }
 
 void CollectionMgr::MountSetFavorite(uint32 spellId, bool favorite)

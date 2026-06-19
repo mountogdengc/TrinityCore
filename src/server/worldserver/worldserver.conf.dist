@@ -3368,6 +3368,40 @@ Collections.GrantPurchasableMounts = 1
 Collections.PurchasableMountSourceTypes = "5,8,9"
 
 #
+#    Collections.GrantAllToys
+#        Description: Grant the entire toy box to every account, account-wide, on login.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantAllToys = 1
+
+#
+#    Collections.GrantAllHeirlooms
+#        Description: Grant every heirloom (at base level) to every account, account-wide, on login.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantAllHeirlooms = 1
+
+#
+#    Collections.GrantAllAppearances
+#        Description: Grant every collectable transmog/item appearance to every account,
+#                     account-wide. This is a large one-time unlock the first time each account
+#                     logs in (unlocked appearances are persisted, so later logins are cheap).
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantAllAppearances = 1
+
+#
+#    Collections.GrantAllWarbandScenes
+#        Description: Grant every warband scene (campsite) to every account, account-wide, on login.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantAllWarbandScenes = 1
+
+#
 #    HonorPointsAfterDuel
 #        Description: Amount of honor points the duel winner will get after a duel.
 #        Default:     0  - (Disabled)

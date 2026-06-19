@@ -132,6 +132,7 @@ TC_GAME_API extern DB2Storage<GuildColorBackgroundEntry>            sGuildColorB
 TC_GAME_API extern DB2Storage<GuildColorBorderEntry>                sGuildColorBorderStore;
 TC_GAME_API extern DB2Storage<GuildColorEmblemEntry>                sGuildColorEmblemStore;
 TC_GAME_API extern DB2Storage<GuildPerkSpellsEntry>                 sGuildPerkSpellsStore;
+TC_GAME_API extern DB2Storage<HeirloomEntry>                        sHeirloomStore;
 TC_GAME_API extern DB2Storage<HolidaysEntry>                        sHolidaysStore;
 TC_GAME_API extern DB2Storage<ImportPriceArmorEntry>                sImportPriceArmorStore;
 TC_GAME_API extern DB2Storage<ImportPriceQualityEntry>              sImportPriceQualityStore;
@@ -304,6 +305,7 @@ TC_GAME_API extern DB2Storage<TraitTreeLoadoutEntry>                sTraitTreeLo
 TC_GAME_API extern DB2Storage<TraitTreeLoadoutEntryEntry>           sTraitTreeLoadoutEntryStore;
 TC_GAME_API extern DB2Storage<TraitTreeXTraitCostEntry>             sTraitTreeXTraitCostStore;
 TC_GAME_API extern DB2Storage<TraitTreeXTraitCurrencyEntry>         sTraitTreeXTraitCurrencyStore;
+TC_GAME_API extern DB2Storage<ToyEntry>                             sToyStore;
 TC_GAME_API extern DB2Storage<TransmogHolidayEntry>                 sTransmogHolidayStore;
 TC_GAME_API extern DB2Storage<TransmogIllusionEntry>                sTransmogIllusionStore;
 TC_GAME_API extern DB2Storage<TransmogOutfitEntryEntry>             sTransmogOutfitEntryStore;
