@@ -24,8 +24,10 @@ public:
     {
         static ChatCommandTable botCommandTable =
         {
-            { "add",    HandleBotAddCommand,    rbac::RBAC_PERM_COMMAND_GM, Console::No },
-            { "remove", HandleBotRemoveCommand, rbac::RBAC_PERM_COMMAND_GM, Console::No },
+            { "add",    HandleBotAddCommand,    rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
+            { "remove", HandleBotRemoveCommand, rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
+            { "follow", HandleBotFollowCommand, rbac::RBAC_PERM_COMMAND_GM, Console::No  },
+            { "stay",   HandleBotStayCommand,   rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
             { "count",  HandleBotCountCommand,  rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
         };
 
@@ -40,15 +42,55 @@ public:
 private:
     static bool HandleBotAddCommand(ChatHandler* handler, std::string const& name)
     {
+        // Added in-world => the bot follows you; added from console => holds position.
+        Player* owner = handler->GetPlayer();
+        ObjectGuid const master = owner ? owner->GetGUID() : ObjectGuid::Empty;
+
         std::string error;
-        if (!sBotMgr->AddBot(name, error))
+        if (!sBotMgr->AddBot(name, master, error))
         {
-            handler->PSendSysMessage("Bot add failed: {}", error);
+            handler->PSendSysMessage("Bot add failed: %s", error.c_str());
             handler->SetSentErrorMessage(true);
             return false;
         }
 
-        handler->PSendSysMessage("Spawning bot '{}'...", name);
+        handler->PSendSysMessage("Spawning bot '%s'...", name.c_str());
+        return true;
+    }
+
+    static bool HandleBotFollowCommand(ChatHandler* handler, std::string const& name)
+    {
+        Player* owner = handler->GetPlayer();
+        if (!owner)
+        {
+            handler->SendSysMessage("Run .bot follow from in-world; the bot follows you.");
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        std::string error;
+        if (!sBotMgr->SetMaster(name, owner->GetGUID(), error))
+        {
+            handler->PSendSysMessage("Bot follow failed: %s", error.c_str());
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        handler->PSendSysMessage("Bot '%s' is now following you.", name.c_str());
+        return true;
+    }
+
+    static bool HandleBotStayCommand(ChatHandler* handler, std::string const& name)
+    {
+        std::string error;
+        if (!sBotMgr->SetMaster(name, ObjectGuid::Empty, error))
+        {
+            handler->PSendSysMessage("Bot stay failed: %s", error.c_str());
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        handler->PSendSysMessage("Bot '%s' will hold position.", name.c_str());
         return true;
     }
 
@@ -57,18 +99,18 @@ private:
         std::string error;
         if (!sBotMgr->RemoveBot(name, error))
         {
-            handler->PSendSysMessage("Bot remove failed: {}", error);
+            handler->PSendSysMessage("Bot remove failed: %s", error.c_str());
             handler->SetSentErrorMessage(true);
             return false;
         }
 
-        handler->PSendSysMessage("Removed bot '{}'.", name);
+        handler->PSendSysMessage("Removed bot '%s'.", name.c_str());
         return true;
     }
 
     static bool HandleBotCountCommand(ChatHandler* handler)
     {
-        handler->PSendSysMessage("Active bots: {}", sBotMgr->GetBotCount());
+        handler->PSendSysMessage("Active bots: %zu", sBotMgr->GetBotCount());
         return true;
     }
 };
