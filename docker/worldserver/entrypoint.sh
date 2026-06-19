@@ -34,6 +34,11 @@ UPDATES_REDUNDANCY="${TC_UPDATES_REDUNDANCY:-0}"
 SOAP_ENABLED="${TC_SOAP_ENABLED:-0}"
 SOAP_IP="${TC_SOAP_IP:-0.0.0.0}"
 SOAP_PORT="${TC_SOAP_PORT:-7878}"
+# Player-bots: a bot that follows its (often GM) master into a dungeon is a real,
+# possibly low-level character and must pass the instance LEVEL gate the GM master
+# bypasses (MapDifficultyConditions + access_requirement, see Player::Satisfy).
+# Default on so bots of any level can zone in; set 0 to restore retail behaviour.
+INSTANCE_IGNORE_LEVEL="${TC_INSTANCE_IGNORE_LEVEL:-1}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
@@ -79,6 +84,7 @@ set_conf "Updates.Redundancy"      "$UPDATES_REDUNDANCY" "$CONF"
 set_conf "SOAP.Enabled"            "$SOAP_ENABLED"       "$CONF"
 set_conf "SOAP.IP"                 "$SOAP_IP"            "$CONF" quote
 set_conf "SOAP.Port"               "$SOAP_PORT"          "$CONF"
+set_conf "Instance.IgnoreLevel"    "$INSTANCE_IGNORE_LEVEL" "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.

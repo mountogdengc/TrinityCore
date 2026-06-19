@@ -1,21 +1,25 @@
 /*
- * Player-bot support for TrinityCore (master) - Milestone 1.
+ * Player-bot support for TrinityCore (master).
+ *
+ *   M1: spawn/despawn a real character as a headless bot (idle, no AI).
+ *   M2: the bot follows a "master" player, zones/teleports with them, and stays
+ *       alive across map changes.
  *
  * BotMgr owns "headless" WorldSessions: real WorldSession objects constructed
  * with a null WorldSocket. Because WorldSession::SendPacket() null-checks the
- * socket, the entire login packet flow becomes a harmless no-op, letting us
- * load a genuine Player into the world with no connected client.
- *
- * M1 scope: spawn/despawn a real character as an idle bot. No AI yet.
+ * socket, the entire packet flow becomes a harmless no-op, letting us load a
+ * genuine Player into the world with no connected client.
  */
 
 #ifndef TRINITYCORE_BOTS_BOTMGR_H
 #define TRINITYCORE_BOTS_BOTMGR_H
 
 #include "Define.h"
+#include "ObjectGuid.h"
 #include <string>
 #include <unordered_map>
 
+class Player;
 class WorldSession;
 
 class BotMgr
@@ -23,16 +27,18 @@ class BotMgr
 public:
     static BotMgr* instance();
 
-    // Spawn the named character into the world as a headless bot.
-    // Returns false and fills `error` on failure.
-    bool AddBot(std::string const& characterName, std::string& error);
+    // Spawn the named character into the world as a headless bot. If `master` is
+    // not empty (M2), the bot follows that player. Returns false + fills `error`.
+    bool AddBot(std::string const& characterName, ObjectGuid master, std::string& error);
 
     // Despawn (and save) a previously spawned bot by character name.
     bool RemoveBot(std::string const& characterName, std::string& error);
 
-    // Pump every active bot session once per world tick. This is what lets the
-    // asynchronous login query-holder callback fire (WorldSession::Update ->
-    // ProcessQueryCallbacks), and keeps the session alive thereafter.
+    // M2: set the player a bot follows; an empty guid clears it (hold position).
+    bool SetMaster(std::string const& characterName, ObjectGuid master, std::string& error);
+
+    // Pump every active bot session once per world tick (drives the async login
+    // callback and keeps the socket-less session alive), then run follow logic.
     void Update(uint32 diff);
 
     // Despawn all bots (used on world shutdown so characters are saved).
@@ -46,8 +52,23 @@ private:
     BotMgr(BotMgr const&) = delete;
     BotMgr& operator=(BotMgr const&) = delete;
 
-    // lowercased character name -> owning headless session
-    std::unordered_map<std::string, WorldSession*> _bots;
+    struct BotEntry
+    {
+        WorldSession* session;
+        ObjectGuid    master;   // empty => idle (M1 behaviour: hold position)
+    };
+
+    // M2: make every bot with a master chase / zone with that player.
+    void UpdateFollow();
+
+    // M3: put the bot in the master's party (forming one if the master is solo),
+    // so they share quest/loot context and -- crucially -- the same dungeon/raid
+    // instance when zoning.
+    void EnsureGrouped(Player* bot, Player* master);
+
+    // lowercased character name -> bot
+    std::unordered_map<std::string, BotEntry> _bots;
+    uint32 _followTimer = 0;
 };
 
 #define sBotMgr BotMgr::instance()
