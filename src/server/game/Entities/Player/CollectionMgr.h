@@ -121,6 +121,12 @@ public:
     void LoadCharacterData();
     void SaveToDB(LoginDatabaseTransaction trans);
 
+    // Grant every collectible of a given type account-wide (gated by config)
+    void GrantAllToys();
+    void GrantAllHeirlooms();
+    void GrantAllAppearances();
+    void GrantAllWarbandScenes();
+
     // Account-wide toys
     void LoadToys();
     void LoadAccountToys(PreparedQueryResult result);
