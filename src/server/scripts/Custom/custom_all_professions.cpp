@@ -15,22 +15,32 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Custom feature: grant every profession to a character on its first login, each starting at
-// skill level 1 so it can be leveled normally.
+// Custom feature: grant every profession to a character on its first login.
+//
+// For each profession we learn its base ("Apprentice") spell. Learning that spell:
+//   - grants the skill (cascaded via spell_learn_skill), starting at level 1 (1/75),
+//   - adds the starter/apprentice recipes,
+//   - makes the profession appear in the spellbook's Professions tab and opens its
+//     trade-skill window, so it is actually usable.
+// If a base spell id is missing on this build we fall back to LearnDefaultSkill so the
+// skill bar still appears (no recipes / may not be usable until the correct spell is learned).
 //
 // Notes:
 //  - Primary professions are bound by the client's two primary-profession slots
 //    (ActivePlayerData::ProfessionSkillLine has only two entries). Professions beyond the first
-//    two are fully learned and craftable/gatherable, but only two ever occupy a "primary
+//    two are fully learned and gatherable/craftable, but only two ever occupy a "primary
 //    profession" UI slot - verify the profession book behaves acceptably on your client build.
 //  - Secondary skills (Cooking, Fishing, Archaeology) are not slot- or cap-bound.
-//  - Only newly created characters are affected (firstLogin). Existing characters can be topped
-//    up with a GM command or a one-off pass with ALL_PROFESSIONS_GRANT_ON_EVERY_LOGIN below.
+//  - Only newly created characters are affected (firstLogin). Set
+//    ALL_PROFESSIONS_GRANT_ON_EVERY_LOGIN below to top up characters that already existed.
+//  - The base spell ids below are the long-standing apprentice spells; confirm them against
+//    your world DB if anything is missing: SELECT * FROM spell_learn_skill WHERE SkillID = <id>;
 
 #include "DB2Stores.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
+#include "SpellMgr.h"
 #include <array>
 
 namespace
@@ -39,15 +49,31 @@ namespace
     // characters that already existed before this script was installed. Leave false for normal use.
     constexpr bool ALL_PROFESSIONS_GRANT_ON_EVERY_LOGIN = false;
 
-    constexpr std::array<uint32, 14> AllProfessionSkills =
+    struct ProfessionEntry
     {
-        // Primary professions (limited by the two ProfessionSkillLine UI slots)
-        SKILL_ALCHEMY, SKILL_BLACKSMITHING, SKILL_ENCHANTING, SKILL_ENGINEERING,
-        SKILL_HERBALISM, SKILL_INSCRIPTION, SKILL_JEWELCRAFTING, SKILL_LEATHERWORKING,
-        SKILL_MINING, SKILL_SKINNING, SKILL_TAILORING,
-        // Secondary professions
-        SKILL_COOKING, SKILL_FISHING, SKILL_ARCHAEOLOGY
+        uint32 SkillId;
+        uint32 LearnSpellId;    // base "Apprentice <profession>" spell
     };
+
+    constexpr std::array<ProfessionEntry, 14> Professions =
+    { {
+        // Primary professions (limited by the two ProfessionSkillLine UI slots)
+        { SKILL_ALCHEMY,        2259  },
+        { SKILL_BLACKSMITHING,  2018  },
+        { SKILL_ENCHANTING,     7411  },
+        { SKILL_ENGINEERING,    4036  },
+        { SKILL_HERBALISM,      2366  },
+        { SKILL_INSCRIPTION,    45357 },
+        { SKILL_JEWELCRAFTING,  25229 },
+        { SKILL_LEATHERWORKING, 2108  },
+        { SKILL_MINING,         2575  },
+        { SKILL_SKINNING,       8613  },
+        { SKILL_TAILORING,      3908  },
+        // Secondary professions
+        { SKILL_COOKING,        2550  },
+        { SKILL_FISHING,        7620  },
+        { SKILL_ARCHAEOLOGY,    78670 }
+    } };
 }
 
 class custom_all_professions : public PlayerScript
@@ -60,16 +86,21 @@ public:
         if (!firstLogin && !ALL_PROFESSIONS_GRANT_ON_EVERY_LOGIN)
             return;
 
-        for (uint32 skillId : AllProfessionSkills)
+        for (ProfessionEntry const& profession : Professions)
         {
-            if (player->HasSkill(skillId))
+            if (player->HasSkill(profession.SkillId))
                 continue;
 
-            // Initialize the profession exactly like a normally-learned one: LearnDefaultSkill
-            // resolves the correct starting/maximum value for the skill's first tier (level 1)
-            // from its race/class definition, so we never hardcode version-specific values.
-            if (SkillRaceClassInfoEntry const* rcInfo = sDB2Manager.GetSkillRaceClassInfo(skillId, player->GetRace(), player->GetClass()))
-                player->LearnDefaultSkill(rcInfo);
+            // Learning the base profession spell grants the skill, the apprentice recipes and
+            // the spellbook/trade-skill entry that makes the profession usable.
+            if (profession.LearnSpellId && sSpellMgr->GetSpellInfo(profession.LearnSpellId, DIFFICULTY_NONE))
+                player->LearnSpell(profession.LearnSpellId, false);
+
+            // Fallback: if the base spell is missing on this build, at least add the skill bar
+            // (initialized to level 1 from the skill's race/class definition).
+            if (!player->HasSkill(profession.SkillId))
+                if (SkillRaceClassInfoEntry const* rcInfo = sDB2Manager.GetSkillRaceClassInfo(profession.SkillId, player->GetRace(), player->GetClass()))
+                    player->LearnDefaultSkill(rcInfo);
         }
     }
 };
