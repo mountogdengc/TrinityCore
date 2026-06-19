@@ -77,6 +77,7 @@ bool BotMgr::AddBot(std::string const& characterName, std::string& error)
         time_t(0), std::string(), Minutes(0),
         0u /*build*/, ClientBuild::VariantId{}, LOCALE_enUS,
         0u /*recruiter*/, false);
+    session->SetBot(true);
 
     _bots[key] = session;
 

@@ -138,6 +138,7 @@ WorldSession::WorldSession(uint32 id, std::string&& name, uint32 battlenetAccoun
     _filterAddonMessages(false),
     recruiterId(recruiter),
     isRecruiter(isARecruiter),
+    _isBot(false),
     _RBACData(nullptr),
     expireTime(60000), // 1 min after socket loss, session is deleted
     forceExit(false),
@@ -253,7 +254,10 @@ void WorldSession::SendPacket(WorldPacket const* packet, bool forced /*= false*/
 
     if (!m_Socket[conIdx])
     {
-        TC_LOG_ERROR("network.opcode", "Prevented sending of {} to non existent socket {} to {}", GetOpcodeNameForLogging(static_cast<OpcodeServer>(packet->GetOpcode())), uint32(conIdx), GetPlayerInfo());
+        // Headless bot sessions have no socket by design; dropping their outbound
+        // packets is expected, so don't spam the log for them.
+        if (!_isBot)
+            TC_LOG_ERROR("network.opcode", "Prevented sending of {} to non existent socket {} to {}", GetOpcodeNameForLogging(static_cast<OpcodeServer>(packet->GetOpcode())), uint32(conIdx), GetPlayerInfo());
         return;
     }
 
@@ -507,9 +511,10 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 
     _recvQueue.readd(requeuePackets.begin(), requeuePackets.end());
 
-    if (!updater.ProcessUnsafe()) // <=> updater is of type MapSessionFilter
+    if (!updater.ProcessUnsafe() && !_isBot) // <=> updater is of type MapSessionFilter
     {
-        // Send time sync packet every 10s.
+        // Send time sync packet every 10s. (Skipped for headless bots, which have
+        // no client to sync and would otherwise flood the socket-less send path.)
         if (_timeSyncTimer > 0)
         {
             if (diff >= _timeSyncTimer)

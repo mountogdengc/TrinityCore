@@ -1252,6 +1252,8 @@ class TC_GAME_API WorldSession
         void HandlePlayerLogin(LoginQueryHolder const& holder);
         // Player-bot support: load a character on a headless (socket-less) session.
         void LoadBotCharacter(ObjectGuid guid);
+        void SetBot(bool on) { _isBot = on; }
+        bool IsBot() const { return _isBot; }
         void HandleCheckCharacterNameAvailability(WorldPackets::Character::CheckCharacterNameAvailability& checkCharacterNameAvailability);
         void HandleCharRenameOpcode(WorldPackets::Character::CharacterRenameRequest& request);
         void HandleCharRenameCallBack(std::shared_ptr<WorldPackets::Character::CharacterRenameInfo> renameInfo, PreparedQueryResult result);
@@ -2029,6 +2031,7 @@ class TC_GAME_API WorldSession
         bool _filterAddonMessages;
         uint32 recruiterId;
         bool isRecruiter;
+        bool _isBot;                                        // headless (socket-less) player-bot session
         LockedQueue<WorldPacket*> _recvQueue;
         rbac::RBACData* _RBACData;
         uint32 expireTime;
