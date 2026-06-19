@@ -41,6 +41,22 @@ uint32 Account::HandleGetAccountState(account::v1::GetAccountStateRequest const*
         response->mutable_tags()->set_privacy_info_tag(0xD7CA834D);
     }
 
+    if (request->options().field_security_status())
+    {
+        // Report the account as having a Battle.net Authenticator attached. The retail client uses
+        // this to unlock the 4 extra backpack slots (and to satisfy other authenticator-gated perks),
+        // independently of the NumBackpackSlots field sent by the world server.
+        response->mutable_state()->mutable_security_status()->set_sms_protect_enabled(false);
+        response->mutable_state()->mutable_security_status()->set_email_verified(true);
+        response->mutable_state()->mutable_security_status()->set_authenticator_enabled(true);
+        response->mutable_state()->mutable_security_status()->set_sqa_enabled(false);
+
+        // NOTE: best-effort version tag. The exact client constant for this field is unknown; the
+        // client reads the state directly for a one-shot GetAccountState, so the value above is what
+        // matters. If the client ignores the field, this tag is the first thing to revisit.
+        response->mutable_tags()->set_security_status_tag(0xC8D52E61);
+    }
+
     return ERROR_OK;
 }
 
