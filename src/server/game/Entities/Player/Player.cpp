@@ -18626,6 +18626,7 @@ bool Player::LoadFromDB(ObjectGuid guid, CharacterDatabaseQueryHolder const& hol
     InitTalentForLevel();
     LearnDefaultSkills();
     LearnCustomSpells();
+    LearnAssistedCombatSpell();
 
     _LoadTraits(holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_TRAIT_CONFIGS),
         holder.GetPreparedResult(PLAYER_LOGIN_QUERY_LOAD_TRAIT_ENTRIES)); // must be after loading spells
@@ -25266,6 +25267,26 @@ void Player::LearnCustomSpells()
         else                                                // but send in normal spell in game learn case
             LearnSpell(tspell, true);
     }
+}
+
+void Player::LearnAssistedCombatSpell()
+{
+    // Single-Button Assistant (Assisted Combat). This client-driven ability shows up in the
+    // spellbook and lets the player cast their recommended rotation with a single button.
+    // It is available to every character regardless of level on retail, so make sure it is
+    // always known. The cast itself is resolved client-side into the next prioritized spell.
+    uint32 const ASSISTED_COMBAT_SINGLE_BUTTON_SPELL = 1229376;
+
+    if (HasSpell(ASSISTED_COMBAT_SINGLE_BUTTON_SPELL))
+        return;
+
+    if (!sSpellMgr->GetSpellInfo(ASSISTED_COMBAT_SINGLE_BUTTON_SPELL, DIFFICULTY_NONE))
+        return;
+
+    if (!IsInWorld())                                       // will be sent in INITIAL_SPELLS list at map add
+        AddSpell(ASSISTED_COMBAT_SINGLE_BUTTON_SPELL, true, true, false, false);
+    else                                                    // but send as a normal in-game learn otherwise
+        LearnSpell(ASSISTED_COMBAT_SINGLE_BUTTON_SPELL, false);
 }
 
 void Player::LearnDefaultSkills()

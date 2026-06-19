@@ -430,6 +430,47 @@ struct ArtifactUnlockLoadInfo
     static constexpr DB2LoadInfo Instance{ Fields, 6, &ArtifactUnlockMeta::Instance, HOTFIX_SEL_ARTIFACT_UNLOCK };
 };
 
+struct AssistedCombatLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[2] =
+    {
+        { .IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "ChrSpecializationID" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 2, &AssistedCombatMeta::Instance, HOTFIX_SEL_ASSISTED_COMBAT };
+};
+
+struct AssistedCombatRuleLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[8] =
+    {
+        { .IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "OrderIndex" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "Field_11_1_7_60520_002" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "ConditionType" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "ConditionValue1" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "ConditionValue2" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "ConditionValue3" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "AssistedCombatStepID" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 8, &AssistedCombatRuleMeta::Instance, HOTFIX_SEL_ASSISTED_COMBAT_RULE };
+};
+
+struct AssistedCombatStepLoadInfo
+{
+    static constexpr DB2FieldMeta Fields[4] =
+    {
+        { .IsSigned = false, .Type = FT_INT, .Name = "ID" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "SpellID" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "AssistedCombatID" },
+        { .IsSigned = true, .Type = FT_INT, .Name = "OrderIndex" },
+    };
+
+    static constexpr DB2LoadInfo Instance{ Fields, 4, &AssistedCombatStepMeta::Instance, HOTFIX_SEL_ASSISTED_COMBAT_STEP };
+};
+
 struct AuctionHouseLoadInfo
 {
     static constexpr DB2FieldMeta Fields[5] =

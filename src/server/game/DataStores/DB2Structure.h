@@ -314,6 +314,32 @@ struct ArtifactUnlockEntry
     uint32 ArtifactID;
 };
 
+struct AssistedCombatEntry
+{
+    uint32 ID;
+    int32 ChrSpecializationID;
+};
+
+struct AssistedCombatRuleEntry
+{
+    uint32 ID;
+    int32 OrderIndex;
+    int32 Field_11_1_7_60520_002;
+    int32 ConditionType;
+    int32 ConditionValue1;
+    int32 ConditionValue2;
+    int32 ConditionValue3;
+    int32 AssistedCombatStepID;
+};
+
+struct AssistedCombatStepEntry
+{
+    uint32 ID;
+    int32 SpellID;
+    int32 AssistedCombatID;
+    int32 OrderIndex;
+};
+
 struct AuctionHouseEntry
 {
     uint32 ID;

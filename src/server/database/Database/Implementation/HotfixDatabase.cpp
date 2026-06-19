@@ -161,6 +161,19 @@ void HotfixDatabaseConnection::DoPrepareStatements()
         " WHERE (`VerifiedBuild` > 0) = ?", CONNECTION_SYNCH);
     PREPARE_MAX_ID_STMT(HOTFIX_SEL_ARTIFACT_UNLOCK, "SELECT MAX(ID) + 1 FROM artifact_unlock", CONNECTION_SYNCH);
 
+    // AssistedCombat.db2
+    PrepareStatement(HOTFIX_SEL_ASSISTED_COMBAT, "SELECT ID, ChrSpecializationID FROM assisted_combat WHERE (`VerifiedBuild` > 0) = ?", CONNECTION_SYNCH);
+    PREPARE_MAX_ID_STMT(HOTFIX_SEL_ASSISTED_COMBAT, "SELECT MAX(ID) + 1 FROM assisted_combat", CONNECTION_SYNCH);
+
+    // AssistedCombatRule.db2
+    PrepareStatement(HOTFIX_SEL_ASSISTED_COMBAT_RULE, "SELECT ID, OrderIndex, Field_11_1_7_60520_002, ConditionType, ConditionValue1, ConditionValue2, ConditionValue3, AssistedCombatStepID"
+        " FROM assisted_combat_rule WHERE (`VerifiedBuild` > 0) = ?", CONNECTION_SYNCH);
+    PREPARE_MAX_ID_STMT(HOTFIX_SEL_ASSISTED_COMBAT_RULE, "SELECT MAX(ID) + 1 FROM assisted_combat_rule", CONNECTION_SYNCH);
+
+    // AssistedCombatStep.db2
+    PrepareStatement(HOTFIX_SEL_ASSISTED_COMBAT_STEP, "SELECT ID, SpellID, AssistedCombatID, OrderIndex FROM assisted_combat_step WHERE (`VerifiedBuild` > 0) = ?", CONNECTION_SYNCH);
+    PREPARE_MAX_ID_STMT(HOTFIX_SEL_ASSISTED_COMBAT_STEP, "SELECT MAX(ID) + 1 FROM assisted_combat_step", CONNECTION_SYNCH);
+
     // AuctionHouse.db2
     PrepareStatement(HOTFIX_SEL_AUCTION_HOUSE, "SELECT ID, Name, FactionID, DepositRate, ConsignmentRate FROM auction_house"
         " WHERE (`VerifiedBuild` > 0) = ?", CONNECTION_SYNCH);
