@@ -2443,22 +2443,22 @@ Rate.Skill.Discovery = 1
 #                     1 - (Rate.Drop.Item.Referenced)
 #                     1 - (Rate.Drop.Money)
 
-Rate.Drop.Item.Poor             = 1
-Rate.Drop.Item.Normal           = 1
-Rate.Drop.Item.Uncommon         = 1
-Rate.Drop.Item.Rare             = 1
-Rate.Drop.Item.Epic             = 1
-Rate.Drop.Item.Legendary        = 1
-Rate.Drop.Item.Artifact         = 1
-Rate.Drop.Item.Referenced       = 1
-Rate.Drop.Money                 = 1
+Rate.Drop.Item.Poor             = 2
+Rate.Drop.Item.Normal           = 2
+Rate.Drop.Item.Uncommon         = 2
+Rate.Drop.Item.Rare             = 2
+Rate.Drop.Item.Epic             = 2
+Rate.Drop.Item.Legendary        = 2
+Rate.Drop.Item.Artifact         = 2
+Rate.Drop.Item.Referenced       = 2
+Rate.Drop.Money                 = 2
 
 #
 #    Rate.Drop.Item.ReferencedAmount
 #        Description: Multiplier for referenced loot amount.
 #        Default:     1
 
-Rate.Drop.Item.ReferencedAmount = 1
+Rate.Drop.Item.ReferencedAmount = 2
 
 #
 #    Rate.XP.Kill
@@ -2536,14 +2536,14 @@ Rate.Auction.Cut     = 1
 #        Description: Honor gain rate.
 #        Default:     1
 
-Rate.Honor = 1
+Rate.Honor = 2
 
 #
 #    Rate.Reputation.Gain
 #        Description: Reputation gain rate.
 #        Default:     1
 
-Rate.Reputation.Gain = 1
+Rate.Reputation.Gain = 2
 
 #
 #    Rate.Reputation.LowLevel.Kill
@@ -2591,7 +2591,7 @@ Rate.InstanceResetTime = 1
 #                     1 - (SkillGain.Gathering)
 
 SkillGain.Crafting  = 1
-SkillGain.Gathering = 1
+SkillGain.Gathering = 2
 
 #
 #    SkillChance.Orange
