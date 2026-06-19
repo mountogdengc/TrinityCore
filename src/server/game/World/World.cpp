@@ -694,6 +694,10 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "Load.Locales"sv, .DefaultValue = true, .Index = CONFIG_LOAD_LOCALES },
         { .Name = "Inventory.AuthenticatorBackpackSlots"sv, .DefaultValue = true, .Index = CONFIG_INVENTORY_AUTHENTICATOR_BACKPACK_SLOTS },
         { .Name = "Collections.GrantPurchasableMounts"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_PURCHASABLE_MOUNTS },
+        { .Name = "Collections.GrantAllToys"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_ALL_TOYS },
+        { .Name = "Collections.GrantAllHeirlooms"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_ALL_HEIRLOOMS },
+        { .Name = "Collections.GrantAllAppearances"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_ALL_APPEARANCES },
+        { .Name = "Collections.GrantAllWarbandScenes"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_ALL_WARBAND_SCENES },
         { .Name = "CharacterCreating.UnlockAllRaces"sv, .DefaultValue = true, .Index = CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES },
     } };
 
