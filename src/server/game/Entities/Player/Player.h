@@ -1966,6 +1966,7 @@ class TC_GAME_API Player final : public Unit, public GridObject<Player>
         void RemoveSpell(uint32 spell_id, bool disabled = false, bool learn_low_rank = true, bool suppressMessaging = false);
         void ResetSpells(bool myClassOnly = false);
         void LearnCustomSpells();
+        void LearnAssistedCombatSpell();
         void LearnDefaultSkills();
         void LearnDefaultSkill(SkillRaceClassInfoEntry const* rcInfo);
         void LearnQuestRewardedSpells();

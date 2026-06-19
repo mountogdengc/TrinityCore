@@ -60,6 +60,9 @@ DB2Storage<ArtifactPowerRankEntry>              sArtifactPowerRankStore("Artifac
 DB2Storage<ArtifactQuestXPEntry>                sArtifactQuestXPStore("ArtifactQuestXP.db2", &ArtifactQuestXpLoadInfo::Instance);
 DB2Storage<ArtifactTierEntry>                   sArtifactTierStore("ArtifactTier.db2", &ArtifactTierLoadInfo::Instance);
 DB2Storage<ArtifactUnlockEntry>                 sArtifactUnlockStore("ArtifactUnlock.db2", &ArtifactUnlockLoadInfo::Instance);
+DB2Storage<AssistedCombatEntry>                 sAssistedCombatStore("AssistedCombat.db2", &AssistedCombatLoadInfo::Instance);
+DB2Storage<AssistedCombatRuleEntry>             sAssistedCombatRuleStore("AssistedCombatRule.db2", &AssistedCombatRuleLoadInfo::Instance);
+DB2Storage<AssistedCombatStepEntry>             sAssistedCombatStepStore("AssistedCombatStep.db2", &AssistedCombatStepLoadInfo::Instance);
 DB2Storage<AuctionHouseEntry>                   sAuctionHouseStore("AuctionHouse.db2", &AuctionHouseLoadInfo::Instance);
 DB2Storage<AzeriteEmpoweredItemEntry>           sAzeriteEmpoweredItemStore("AzeriteEmpoweredItem.db2", &AzeriteEmpoweredItemLoadInfo::Instance);
 DB2Storage<AzeriteEssenceEntry>                 sAzeriteEssenceStore("AzeriteEssence.db2", &AzeriteEssenceLoadInfo::Instance);
@@ -692,6 +695,9 @@ uint32 DB2Manager::LoadStores(std::string const& dataPath, LocaleConstant defaul
     LOAD_DB2(sArtifactPowerRankStore);
     LOAD_DB2(sArtifactTierStore);
     LOAD_DB2(sArtifactUnlockStore);
+    LOAD_DB2(sAssistedCombatStore);
+    LOAD_DB2(sAssistedCombatRuleStore);
+    LOAD_DB2(sAssistedCombatStepStore);
     LOAD_DB2(sAuctionHouseStore);
     LOAD_DB2(sAzeriteEmpoweredItemStore);
     LOAD_DB2(sAzeriteEssenceStore);
