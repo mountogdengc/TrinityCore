@@ -772,6 +772,12 @@ enum InventorySlots : uint8                                 // 4 slots
     INVENTORY_SLOT_BAG_END      = 34
 };
 
+enum BackpackSlotDefaults : uint8
+{
+    DEFAULT_BACKPACK_SLOTS        = 16,                     // base backpack size
+    AUTHENTICATOR_BACKPACK_SLOTS  = 20                      // base 16 + 4 granted for registering an authenticator
+};
+
 enum ReagentBagSlots : uint8                                // 1 slot
 {
     REAGENT_BAG_SLOT_START  = 34,

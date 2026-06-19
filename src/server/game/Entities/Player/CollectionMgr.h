@@ -151,6 +151,7 @@ public:
 
     // Account-wide mounts
     void LoadMounts();
+    void GrantSpecialMounts();
     void LoadAccountMounts(PreparedQueryResult result);
     void SaveAccountMounts(LoginDatabaseTransaction trans);
     bool AddMount(uint32 spellId, MountStatusFlags flags, bool factionMount = false, bool learned = false);

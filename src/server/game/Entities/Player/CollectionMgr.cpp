@@ -17,6 +17,7 @@
 
 #include "CollectionMgr.h"
 #include "CollectionPackets.h"
+#include "Config.h"
 #include "DatabaseEnv.h"
 #include "DB2Stores.h"
 #include "Item.h"
@@ -25,9 +26,12 @@
 #include "MiscPackets.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "StringConvert.h"
 #include "Timer.h"
 #include "TransmogMgr.h"
 #include "TransmogrificationPackets.h"
+#include "Util.h"
+#include "World.h"
 #include "WorldSession.h"
 #include <boost/dynamic_bitset.hpp>
 
@@ -109,6 +113,7 @@ void CollectionMgr::LoadCharacterData()
     LoadToys();
     LoadHeirlooms();
     LoadMounts();
+    GrantSpecialMounts();
     LoadItemAppearances();
     LoadTransmogIllusions();
     LoadTransmogOutfits();
@@ -379,6 +384,40 @@ void CollectionMgr::LoadMounts()
 {
     for (auto const& m : _mounts)
         AddMount(m.first, m.second, false, false);
+}
+
+// Grants, account-wide, every mount whose Mount.db2 SourceTypeEnum matches one of the
+// configured "special" sources. The defaults cover the real-world purchasable mounts
+// (In-Game Shop, Trading Card Game) and promotional mounts such as the Recruit-A-Friend /
+// invite-a-friend starter mount, mirroring the perks retail grants outside the game world.
+void CollectionMgr::GrantSpecialMounts()
+{
+    if (!sWorld->getBoolConfig(CONFIG_COLLECTIONS_GRANT_PURCHASABLE_MOUNTS))
+        return;
+
+    if (!_owner->GetPlayer())
+        return;
+
+    // Mount.db2 SourceTypeEnum: 5 = In-Game Shop, 8 = Promotion (incl. Recruit-A-Friend), 9 = Trading Card Game
+    std::string const sourceTypesStr = sConfigMgr->GetStringDefault("Collections.PurchasableMountSourceTypes", "5,8,9");
+    std::set<int8> sourceTypes;
+    for (std::string_view token : Trinity::Tokenize(sourceTypesStr, ',', false))
+        if (Optional<int8> sourceType = Trinity::StringTo<int8>(token))
+            sourceTypes.insert(*sourceType);
+
+    if (sourceTypes.empty())
+        return;
+
+    for (MountEntry const* mount : sMountStore)
+    {
+        if (!sourceTypes.contains(mount->SourceTypeEnum))
+            continue;
+
+        if (!mount->SourceSpellID || _mounts.contains(mount->SourceSpellID))
+            continue;
+
+        AddMount(mount->SourceSpellID, MOUNT_STATUS_NONE, false, false);
+    }
 }
 
 void CollectionMgr::LoadAccountMounts(PreparedQueryResult result)

@@ -692,6 +692,9 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "AllowLoggingIPAddressesInDatabase"sv, .DefaultValue = true, .Index = CONFIG_ALLOW_LOGGING_IP_ADDRESSES_IN_DATABASE },
         { .Name = "Loot.EnableAELoot"sv, .DefaultValue = true, .Index = CONFIG_ENABLE_AE_LOOT },
         { .Name = "Load.Locales"sv, .DefaultValue = true, .Index = CONFIG_LOAD_LOCALES },
+        { .Name = "Inventory.AuthenticatorBackpackSlots"sv, .DefaultValue = true, .Index = CONFIG_INVENTORY_AUTHENTICATOR_BACKPACK_SLOTS },
+        { .Name = "Collections.GrantPurchasableMounts"sv, .DefaultValue = true, .Index = CONFIG_COLLECTIONS_GRANT_PURCHASABLE_MOUNTS },
+        { .Name = "CharacterCreating.UnlockAllRaces"sv, .DefaultValue = true, .Index = CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES },
     } };
 
     static constexpr ConfigOptionLoadDefinitionArray<uint32, INT_CONFIG_VALUE_COUNT> ints =

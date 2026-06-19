@@ -886,6 +886,21 @@ CharacterCreating.MinLevelForEvoker = 0
 CharacterCreating.DisableAlliedRaceAchievementRequirement = 0
 
 #
+#    CharacterCreating.UnlockAllRaces
+#        Description: Unlock every "special" race (allied races, etc.) for all accounts at
+#                     character creation, regardless of the account's expansion level or any
+#                     achievement/license requirement defined in `race_unlock_requirement`.
+#                     When enabled, all races are reported as unlocked in the character
+#                     selection screen and the matching expansion/achievement gates are
+#                     bypassed server-side on creation.
+#                     Note: class-specific expansion gates are unaffected, so a Dracthyr still
+#                     requires the Evoker class to be available to the account.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+CharacterCreating.UnlockAllRaces = 1
+
+#
 #    SkipCinematics
 #        Description: Disable cinematic intro at first login after character creation.
 #                     Prevents buggy intros in case of custom start location coordinates.
@@ -2443,22 +2458,22 @@ Rate.Skill.Discovery = 1
 #                     1 - (Rate.Drop.Item.Referenced)
 #                     1 - (Rate.Drop.Money)
 
-Rate.Drop.Item.Poor             = 1
-Rate.Drop.Item.Normal           = 1
-Rate.Drop.Item.Uncommon         = 1
-Rate.Drop.Item.Rare             = 1
-Rate.Drop.Item.Epic             = 1
-Rate.Drop.Item.Legendary        = 1
-Rate.Drop.Item.Artifact         = 1
-Rate.Drop.Item.Referenced       = 1
-Rate.Drop.Money                 = 1
+Rate.Drop.Item.Poor             = 2
+Rate.Drop.Item.Normal           = 2
+Rate.Drop.Item.Uncommon         = 2
+Rate.Drop.Item.Rare             = 2
+Rate.Drop.Item.Epic             = 2
+Rate.Drop.Item.Legendary        = 2
+Rate.Drop.Item.Artifact         = 2
+Rate.Drop.Item.Referenced       = 2
+Rate.Drop.Money                 = 2
 
 #
 #    Rate.Drop.Item.ReferencedAmount
 #        Description: Multiplier for referenced loot amount.
 #        Default:     1
 
-Rate.Drop.Item.ReferencedAmount = 1
+Rate.Drop.Item.ReferencedAmount = 2
 
 #
 #    Rate.XP.Kill
@@ -2536,14 +2551,14 @@ Rate.Auction.Cut     = 1
 #        Description: Honor gain rate.
 #        Default:     1
 
-Rate.Honor = 1
+Rate.Honor = 2
 
 #
 #    Rate.Reputation.Gain
 #        Description: Reputation gain rate.
 #        Default:     1
 
-Rate.Reputation.Gain = 1
+Rate.Reputation.Gain = 2
 
 #
 #    Rate.Reputation.LowLevel.Kill
@@ -2591,7 +2606,7 @@ Rate.InstanceResetTime = 1
 #                     1 - (SkillGain.Gathering)
 
 SkillGain.Crafting  = 1
-SkillGain.Gathering = 1
+SkillGain.Gathering = 2
 
 #
 #    SkillChance.Orange
@@ -3318,6 +3333,39 @@ PlayerStart.AllSpells = 0
 #                     1 - (Enabled)
 
 PlayerStart.MapsExplored = 0
+
+#
+#    Inventory.AuthenticatorBackpackSlots
+#        Description: Grant every account the extra backpack slots that retail awards for
+#                     registering a Battle.net authenticator. When enabled, every character
+#                     is bumped to 20 backpack slots (16 base + 4 bonus) on login if it has
+#                     fewer. Larger backpacks (e.g. from future content) are left untouched.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Inventory.AuthenticatorBackpackSlots = 1
+
+#
+#    Collections.GrantPurchasableMounts
+#        Description: Grant every account, account-wide, the mounts that retail unlocks
+#                     outside of the game world: real-world purchasable mounts (In-Game Shop,
+#                     Trading Card Game) and promotional mounts such as the Recruit-A-Friend /
+#                     invite-a-friend starter mount. Mounts are granted on login based on the
+#                     source types listed in Collections.PurchasableMountSourceTypes.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Collections.GrantPurchasableMounts = 1
+
+#
+#    Collections.PurchasableMountSourceTypes
+#        Description: Comma-separated list of Mount.db2 SourceTypeEnum values that
+#                     Collections.GrantPurchasableMounts treats as "special" and grants to
+#                     every account. Known values: 5 = In-Game Shop, 8 = Promotion (includes
+#                     Recruit-A-Friend), 9 = Trading Card Game.
+#        Default:     "5,8,9"
+
+Collections.PurchasableMountSourceTypes = "5,8,9"
 
 #
 #    HonorPointsAfterDuel

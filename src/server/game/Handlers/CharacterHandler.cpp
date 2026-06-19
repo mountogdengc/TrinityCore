@@ -476,13 +476,15 @@ void WorldSession::HandleCharEnum(CharacterDatabaseQueryHolder const& holder)
         while (result->NextRow() && charEnum.Characters.size() < MAX_CHARACTERS_PER_REALM);
     }
 
+    bool const unlockAllRaces = sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES);
     for (std::pair<uint8 const, RaceUnlockRequirement> const& requirement : sObjectMgr->GetRaceUnlockRequirements())
     {
         WorldPackets::Character::EnumCharactersResult::RaceUnlock raceUnlock;
         raceUnlock.RaceID = requirement.first;
-        raceUnlock.HasUnlockedLicense = GetAccountExpansion() >= requirement.second.Expansion;
+        raceUnlock.HasUnlockedLicense = unlockAllRaces || GetAccountExpansion() >= requirement.second.Expansion;
         raceUnlock.HasUnlockedAchievement = requirement.second.AchievementId != 0
-            && (sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_DISABLE_ALLIED_RACE_ACHIEVEMENT_REQUIREMENT)
+            && (unlockAllRaces
+                || sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_DISABLE_ALLIED_RACE_ACHIEVEMENT_REQUIREMENT)
                 /* || HasAccountAchievement(requirement.second.AchievementId)*/);
         charEnum.RaceUnlockData.push_back(raceUnlock);
     }
@@ -691,7 +693,8 @@ void WorldSession::HandleCharCreateOpcode(WorldPackets::Character::CreateCharact
         return;
     }
 
-    if (raceExpansionRequirement->Expansion > GetAccountExpansion())
+    if (raceExpansionRequirement->Expansion > GetAccountExpansion()
+        && !sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES))
     {
         TC_LOG_ERROR("entities.player.cheat", "Expansion {} account:[{}] tried to Create character with expansion {} race ({})",
             GetAccountExpansion(), GetAccountId(), raceExpansionRequirement->Expansion, charCreate.CreateInfo->Race);
@@ -2587,10 +2590,10 @@ void WorldSession::HandleCharRaceOrFactionChangeCallback(std::shared_ptr<WorldPa
                 ObjectMgr::QuestContainer const& questTemplates = sObjectMgr->GetQuestTemplates();
                 for (auto const& [questId, quest] : questTemplates)
                 {
-                    Trinity::RaceMask<std::array<int32, 2>> newRaceMask = newTeamId == TEAM_ALLIANCE
-                        ? RACEMASK_ALLIANCE_v<std::array<int32, 2>>
-                        : RACEMASK_HORDE_v<std::array<int32, 2>>;
-                    if (quest->GetAllowableRaces() != RACEMASK_ALL_v<std::array<int32, 2>> && (quest->GetAllowableRaces() & newRaceMask).IsEmpty())
+                    Trinity::RaceMask<int32, 2> newRaceMask = newTeamId == TEAM_ALLIANCE
+                        ? RACEMASK_ALLIANCE_v<int32, 2>
+                        : RACEMASK_HORDE_v<int32, 2>;
+                    if (quest->GetAllowableRaces() != RACEMASK_ALL_v<int32, 2> && (quest->GetAllowableRaces() & newRaceMask).IsEmpty())
                     {
                         stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHAR_QUESTSTATUS_REWARDED_ACTIVE_BY_QUEST);
                         stmt->setUInt64(0, lowGuid);
@@ -2633,10 +2636,10 @@ void WorldSession::HandleCharRaceOrFactionChangeCallback(std::shared_ptr<WorldPa
                     FactionEntry const* factionEntry = sFactionStore.LookupEntry(oldReputation);
 
                     // old base reputation
-                    int32 oldBaseRep = sObjectMgr->GetBaseReputationOf(factionEntry, oldRace, playerClass);
+                    int32 oldBaseRep = ReputationMgr::GetBaseReputation(factionEntry, oldRace, playerClass);
 
                     // new base reputation
-                    int32 newBaseRep = sObjectMgr->GetBaseReputationOf(sFactionStore.LookupEntry(newReputation), factionChangeInfo->RaceID, playerClass);
+                    int32 newBaseRep = ReputationMgr::GetBaseReputation(sFactionStore.LookupEntry(newReputation), factionChangeInfo->RaceID, playerClass);
 
                     // final reputation shouldnt change
                     int32 FinalRep = oldDBRep + oldBaseRep;
