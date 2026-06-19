@@ -886,6 +886,21 @@ CharacterCreating.MinLevelForEvoker = 0
 CharacterCreating.DisableAlliedRaceAchievementRequirement = 0
 
 #
+#    CharacterCreating.UnlockAllRaces
+#        Description: Unlock every "special" race (allied races, etc.) for all accounts at
+#                     character creation, regardless of the account's expansion level or any
+#                     achievement/license requirement defined in `race_unlock_requirement`.
+#                     When enabled, all races are reported as unlocked in the character
+#                     selection screen and the matching expansion/achievement gates are
+#                     bypassed server-side on creation.
+#                     Note: class-specific expansion gates are unaffected, so a Dracthyr still
+#                     requires the Evoker class to be available to the account.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+CharacterCreating.UnlockAllRaces = 1
+
+#
 #    SkipCinematics
 #        Description: Disable cinematic intro at first login after character creation.
 #                     Prevents buggy intros in case of custom start location coordinates.

@@ -476,13 +476,15 @@ void WorldSession::HandleCharEnum(CharacterDatabaseQueryHolder const& holder)
         while (result->NextRow() && charEnum.Characters.size() < MAX_CHARACTERS_PER_REALM);
     }
 
+    bool const unlockAllRaces = sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES);
     for (std::pair<uint8 const, RaceUnlockRequirement> const& requirement : sObjectMgr->GetRaceUnlockRequirements())
     {
         WorldPackets::Character::EnumCharactersResult::RaceUnlock raceUnlock;
         raceUnlock.RaceID = requirement.first;
-        raceUnlock.HasUnlockedLicense = GetAccountExpansion() >= requirement.second.Expansion;
+        raceUnlock.HasUnlockedLicense = unlockAllRaces || GetAccountExpansion() >= requirement.second.Expansion;
         raceUnlock.HasUnlockedAchievement = requirement.second.AchievementId != 0
-            && (sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_DISABLE_ALLIED_RACE_ACHIEVEMENT_REQUIREMENT)
+            && (unlockAllRaces
+                || sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_DISABLE_ALLIED_RACE_ACHIEVEMENT_REQUIREMENT)
                 /* || HasAccountAchievement(requirement.second.AchievementId)*/);
         charEnum.RaceUnlockData.push_back(raceUnlock);
     }
@@ -691,7 +693,8 @@ void WorldSession::HandleCharCreateOpcode(WorldPackets::Character::CreateCharact
         return;
     }
 
-    if (raceExpansionRequirement->Expansion > GetAccountExpansion())
+    if (raceExpansionRequirement->Expansion > GetAccountExpansion()
+        && !sWorld->getBoolConfig(CONFIG_CHARACTER_CREATING_UNLOCK_ALL_RACES))
     {
         TC_LOG_ERROR("entities.player.cheat", "Expansion {} account:[{}] tried to Create character with expansion {} race ({})",
             GetAccountExpansion(), GetAccountId(), raceExpansionRequirement->Expansion, charCreate.CreateInfo->Race);
