@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 class Player;
+class Unit;
 class WorldSession;
 
 class BotMgr
@@ -55,7 +56,9 @@ private:
     struct BotEntry
     {
         WorldSession* session;
-        ObjectGuid    master;   // empty => idle (M1 behaviour: hold position)
+        ObjectGuid    master;            // empty => idle (M1 behaviour: hold position)
+        uint32        holdTimer = 0;     // M3: ms left to linger after a fight before re-following
+        uint32        staleCombatTimer = 0; // ms since we last had a fresh assist/defend target
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -65,6 +68,11 @@ private:
     // so they share quest/loot context and -- crucially -- the same dungeon/raid
     // instance when zoning.
     void EnsureGrouped(Player* bot, Player* master);
+
+    // M3: pick who the bot should fight -- the master's target while they're in
+    // combat (assist), else whatever is attacking the bot (defend self). Returns
+    // nullptr when there's nothing to fight.
+    Unit* SelectAssistTarget(Player* bot, Player* master);
 
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;
