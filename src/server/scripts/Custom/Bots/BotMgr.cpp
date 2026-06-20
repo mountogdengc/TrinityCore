@@ -70,6 +70,24 @@ BotMgr* BotMgr::instance()
     return &instance;
 }
 
+bool BotMgr::AddBot(ObjectGuid characterGuid, ObjectGuid master, std::string& error)
+{
+    if (characterGuid.IsEmpty())
+    {
+        error = "Character guid is required.";
+        return false;
+    }
+
+    std::string characterName;
+    if (!sCharacterCache->GetCharacterNameByGuid(characterGuid, characterName))
+    {
+        error = "Could not resolve the character name for that guid.";
+        return false;
+    }
+
+    return AddBot(characterName, master, error);
+}
+
 bool BotMgr::AddBot(std::string const& characterName, ObjectGuid master, std::string& error)
 {
     std::string const key = ToLower(characterName);

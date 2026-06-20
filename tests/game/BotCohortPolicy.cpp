@@ -48,3 +48,8 @@ TEST_CASE("Bot cohort policy only auto-accepts continuity actions when appropria
     REQUIRE(BotCohortPolicy::ShouldAutoAcceptSummon(true, true));
     REQUIRE_FALSE(BotCohortPolicy::ShouldAutoAcceptSummon(false, true));
 }
+
+TEST_CASE("Bot cohort policy blocks login auto-spawn for dead owners", "[BotCohortPolicy]")
+{
+    REQUIRE_FALSE(BotCohortPolicy::ShouldAutoSpawnCohort(true, false, true));
+}

@@ -28,6 +28,8 @@ class BotMgr
 public:
     static BotMgr* instance();
 
+    bool AddBot(ObjectGuid characterGuid, ObjectGuid master, std::string& error);
+
     // Spawn the named character into the world as a headless bot. If `master` is
     // not empty (M2), the bot follows that player. Returns false + fills `error`.
     bool AddBot(std::string const& characterName, ObjectGuid master, std::string& error);
