@@ -24,6 +24,15 @@
 // two primary-profession slots, so granting more would just create professions the UI cannot
 // show or use.
 //
+// IMPORTANT: a skill only counts as "secondary" if the client data (SkillLine.db2) classifies it
+// as SKILL_CATEGORY_SECONDARY. Whether a skill consumes a primary-profession slot/free point is
+// decided entirely by its CategoryID in core (see Player::SetSkill / Player::FindEmptyProfessionSlotFor
+// and IsPrimaryProfessionSkill). On some builds a skill listed here - notably Archaeology - is
+// instead categorized as a primary profession (SKILL_CATEGORY_PROFESSION); granting it would then
+// silently eat one of the two primary slots and block the character from ever learning a real
+// profession. To avoid that, every entry is verified against the running build's data at grant
+// time and anything that is not actually a secondary skill is skipped (with a log line).
+//
 // For each profession we learn its base ("Apprentice") spell, which grants the skill at level 1
 // (1/75), adds the starter recipes, and registers the usable profession/trade-skill entry.
 // LearnDefaultSkill is kept only as a fallback for builds where a base spell id is missing.
@@ -32,6 +41,7 @@
 //   SELECT * FROM spell_learn_skill WHERE SkillID = <id>;
 
 #include "DB2Stores.h"
+#include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
@@ -72,6 +82,18 @@ public:
         {
             if (player->HasSkill(profession.SkillId))
                 continue;
+
+            // Only ever grant genuine secondary skills. If this build's client data classifies the
+            // skill as a primary profession (or it is a child/expansion skill line), granting it
+            // would consume one of the two primary-profession slots and stop the player from
+            // learning a real profession - exactly the bug this guard prevents. Skip it instead.
+            SkillLineEntry const* skillEntry = sSkillLineStore.LookupEntry(profession.SkillId);
+            if (!skillEntry || skillEntry->ParentSkillLineID || skillEntry->CategoryID != SKILL_CATEGORY_SECONDARY)
+            {
+                TC_LOG_DEBUG("scripts.custom", "custom_secondary_professions: not granting skill {} to {} - it is not a secondary skill on this build (would consume a primary-profession slot)",
+                    profession.SkillId, player->GetName());
+                continue;
+            }
 
             // Learning the base profession spell grants the skill, the starter recipes and the
             // usable spellbook/trade-skill entry.
