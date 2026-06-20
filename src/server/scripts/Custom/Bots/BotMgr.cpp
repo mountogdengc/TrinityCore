@@ -6,6 +6,7 @@
  */
 
 #include "BotMgr.h"
+#include "BotCombatPolicy.h"
 #include "CharacterCache.h"
 #include "Chat.h"
 #include "Group.h"
@@ -34,12 +35,32 @@ namespace
     constexpr uint32 BOT_FOLLOW_INTERVAL_MS = 500;
     constexpr float  BOT_FOLLOW_DIST        = 2.0f;
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
+    constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
+    constexpr uint32 BOT_STALE_COMBAT_MS    = 1500;
+    constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
 
     std::string ToLower(std::string str)
     {
         std::transform(str.begin(), str.end(), str.begin(),
             [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return str;
+    }
+
+    bool IsEligibleMasterAssistTarget(Player* bot, Player* master, Unit* target)
+    {
+        if (!target || !target->IsAlive())
+            return false;
+
+        if (bot->GetMap() != target->GetMap() || !bot->InSamePhase(target))
+            return false;
+
+        if (bot->IsFriendlyTo(target) || target->IsFriendlyTo(bot))
+            return false;
+
+        if (bot->GetExactDist(target) > BOT_COMBAT_LEASH_DIST)
+            return false;
+
+        return master->IsValidAttackTarget(target);
     }
 }
 
@@ -166,7 +187,7 @@ void BotMgr::Update(uint32 diff)
 
 void BotMgr::UpdateFollow()
 {
-    for (auto const& [name, entry] : _bots)
+    for (auto& [name, entry] : _bots)
     {
         if (entry.master.IsEmpty())
             continue;   // M1 behaviour: no master => hold position.
@@ -239,11 +260,88 @@ void BotMgr::UpdateFollow()
             continue;
         }
 
+        // M3: assist the master's target, or defend ourselves if attacked. Once
+        // Attack()+MoveChase() are set the bot's own Unit::Update drives the melee
+        // swings, so we just (re)issue them when the target changes. (M4 will layer
+        // a real spell rotation on top of this melee baseline.)
+        if (Unit* target = SelectAssistTarget(bot, master))
+        {
+            entry.staleCombatTimer = 0;
+            entry.holdTimer = BOT_POSTCOMBAT_HOLD_MS;   // remember we were fighting
+            if (bot->GetVictim() != target)
+            {
+                bot->Attack(target, true);
+                bot->GetMotionMaster()->MoveChase(target);
+            }
+            continue;
+        }
+
+        // No fresh target this tick. Keep a valid current victim, and only force a
+        // stop after a short stale window so transient target-selection gaps don't
+        // snap the bot out of combat.
+        if (Unit* victim = bot->GetVictim())
+        {
+            bool const victimStillValid = bot->IsValidAttackTarget(victim);
+            bool const victimWithinLeash = bot->GetExactDist(victim) <= BOT_COMBAT_LEASH_DIST;
+            if (victim->IsAlive() && victimStillValid && victimWithinLeash)
+            {
+                entry.staleCombatTimer = 0;
+                continue;
+            }
+
+            bool const keepVictim = BotCombatPolicy::ShouldKeepCurrentVictim(false, victim->IsAlive(),
+                victimStillValid, victimWithinLeash, entry.staleCombatTimer, BOT_STALE_COMBAT_MS);
+            if (keepVictim)
+            {
+                entry.staleCombatTimer += BOT_FOLLOW_INTERVAL_MS;
+                continue;
+            }
+
+            entry.staleCombatTimer = 0;
+            bot->AttackStop();
+        }
+        else
+            entry.staleCombatTimer = 0;
+
+        if (entry.holdTimer)
+        {
+            entry.holdTimer = (entry.holdTimer > BOT_FOLLOW_INTERVAL_MS)
+                ? entry.holdTimer - BOT_FOLLOW_INTERVAL_MS : 0;
+            continue;
+        }
+
         // Close enough => chase on foot. Re-issued only when the current generator
         // isn't a follow (initial, post-teleport, post-combat).
         if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
             bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST);
     }
+}
+
+Unit* BotMgr::SelectAssistTarget(Player* bot, Player* master)
+{
+    Unit* const mVictim = master->GetVictim();
+    Unit* const mSelected = ObjectAccessor::GetUnit(*master, master->GetTarget());
+
+    // Assist: whatever the master is meleeing, or their currently selected
+    // hostile target when there is no active master victim yet.
+    bool const hasMasterVictim = IsEligibleMasterAssistTarget(bot, master, mVictim);
+    if (hasMasterVictim)
+        return mVictim;
+
+    if (BotCombatPolicy::ShouldUseMasterSelectedTarget(hasMasterVictim, master->IsInCombat(),
+        IsEligibleMasterAssistTarget(bot, master, mSelected)))
+        return mSelected;
+
+    // Defend self: the first thing actively attacking us.
+    for (Unit* attacker : bot->getAttackers())
+        if (attacker && attacker->IsAlive() && bot->IsValidAttackTarget(attacker))
+            return attacker;
+
+    if (Unit* combatTarget = bot->GetCombatManager().GetAnyTarget())
+        if (combatTarget->IsAlive() && bot->IsValidAttackTarget(combatTarget))
+            return combatTarget;
+
+    return nullptr;
 }
 
 void BotMgr::EnsureGrouped(Player* bot, Player* master)
