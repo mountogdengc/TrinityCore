@@ -76,7 +76,8 @@ bool BotCohortMgr::AssignCompanion(ObjectGuid ownerGuid, ObjectGuid companionGui
         return false;
     }
 
-    bool autoSpawnEnabled = GetAutoSpawnEnabled(ownerGuid);
+    std::vector<CohortMember> companions = LoadCompanions(ownerGuid);
+    bool autoSpawnEnabled = companions.empty() ? true : GetAutoSpawnEnabled(ownerGuid);
 
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_REP_BOT_COHORT_MEMBER);
     stmt->setUInt64(0, ownerGuid.GetCounter());
@@ -157,9 +158,9 @@ bool BotCohortMgr::SpawnOwnerCohort(Player* owner, std::string& error)
         return false;
     }
 
-    if (!BotCohortPolicy::ShouldAutoSpawnCohort(true, owner->IsAlive(), owner->IsInWorld()))
+    if (!BotCohortPolicy::ShouldAutoSpawnCohort(GetAutoSpawnEnabled(owner->GetGUID()), owner->IsAlive(), owner->IsInWorld()))
     {
-        error = "You must be alive and in the world to spawn your cohort.";
+        error = "Cohort auto-spawn must be enabled and the owner must be alive in the world.";
         return false;
     }
 
