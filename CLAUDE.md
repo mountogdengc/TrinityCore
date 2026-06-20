@@ -57,10 +57,22 @@ Headless bots: a real `Player` driven by a `WorldSession` with a **null socket**
 `BotMgr` owns the sessions and is pumped each tick by `bot_worldscript`.
 
 - **Roadmap:** M1 spawn static headless bot ✅ · M2 follow + zone with master,
-  incl. dungeons ✅ · M3 group ✅ + assist combat (next) · M4 data-driven rotation
-  engine · M5+ questing/looting/gear/parties.
+  incl. dungeons ✅ · M3 group ✅ + assist combat ✅ · M4 data-driven rotation
+  engine (next) · M5+ questing/looting/gear/parties.
 - Commands: `.bot add/remove/follow/stay/count` (GM). `add`/`remove`/`stay`/`count`
   are console-allowed; `follow` needs an in-world player.
+- **M3 combat** (`BotCombatPolicy` + `BotMgr::SelectAssistTarget`): the bot
+  assists the master's melee victim / in-combat selected target, and defends
+  itself (its attackers + combat refs). ⚠️ Eligibility is checked with the
+  **master's** `IsValidAttackTarget`, not the bot's — a headless bot's own
+  `CanSeeOrDetect` gate is unreliable (it returns false for mobs that can see and
+  aggro *it*, so `bot->IsValidAttackTarget` wrongly rejects them). Root cause of
+  the bot-side visibility gate is still open; the master-validity routing is the
+  working M3 workaround.
+- ⚠️ **Don't `.character level` a spawned bot** (console `GiveLevel`): it leaves
+  the headless bot's talent/spec state inconsistent and crashes the worldserver on
+  the next save/`.bot remove`. Level bots by playing/escorting instead. A
+  naturally-leveled bot (e.g. a level-10 with no talents chosen) saves fine.
 - ⚠️ **`PSendSysMessage` here is printf-style** (`fmt::make_printf_args`): use
   `%s`/`%zu`, **not** `{}`. `{}` prints literally and drops the argument. (Use
   `{}` only for `TC_LOG_*`.)
