@@ -36,7 +36,6 @@ namespace
     constexpr float  BOT_FOLLOW_DIST        = 2.0f;
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
-    constexpr uint32 BOT_STALE_COMBAT_MS    = 1500;
     constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
 
     std::string ToLower(std::string str)
@@ -261,10 +260,20 @@ void BotMgr::UpdateFollow()
         // M3: keep the bot in the master's party so they share the same instance.
         EnsureGrouped(bot, master);
 
+        // Are we mid-fight with a reachable, still-valid victim? If so, don't let
+        // the same-map catch-up blink yank us off it (a *caster* master -- e.g. an
+        // undead priest -- often backpedals while casting, which would otherwise
+        // teleport the chasing bot back and drop combat). Cross-map still blinks.
+        Unit* const curVictim = bot->GetVictim();
+        bool const inActiveCombat = curVictim && curVictim->IsAlive()
+            && bot->IsValidAttackTarget(curVictim)
+            && bot->GetExactDist(curVictim) <= BOT_COMBAT_LEASH_DIST;
+
         // Cross-map, or fell too far behind on the same map (mount / taxi / a
         // master teleport): blink to the master's position. Pass the master's
         // instance id so the bot joins the SAME instance (dungeons/raids).
-        if (bot->GetMapId() != master->GetMapId() || bot->GetDistance(master) > BOT_CATCHUP_DIST)
+        if (bot->GetMapId() != master->GetMapId()
+            || (!inActiveCombat && bot->GetDistance(master) > BOT_CATCHUP_DIST))
         {
             uint32 const fromMap = bot->GetMapId();
             bool const ok = bot->TeleportTo(master->GetMapId(), master->GetPositionX(), master->GetPositionY(),
@@ -278,48 +287,44 @@ void BotMgr::UpdateFollow()
             continue;
         }
 
-        // M3: assist the master's target, or defend ourselves if attacked. Once
-        // Attack()+MoveChase() are set the bot's own Unit::Update drives the melee
-        // swings, so we just (re)issue them when the target changes. (M4 will layer
-        // a real spell rotation on top of this melee baseline.)
-        if (Unit* target = SelectAssistTarget(bot, master))
+        // M3: pick who to fight. Prefer a fresh assist/defend target, but if there
+        // isn't one this tick, STAY COMMITTED to the mob we're already meleeing
+        // until it's dead or out of leash. This is critical for a *caster* master:
+        // a priest never sets GetVictim() and constantly re-selects (to self-heal /
+        // tab-target), so keying combat purely off the master's current selection
+        // makes the bot land one hit and then idle. (A melee master's GetVictim()
+        // is stable, which is why this looked fine at Sen'jin and broke for the
+        // undead priest.)
+        Unit* target = SelectAssistTarget(bot, master);
+        if (!target && inActiveCombat)
+            target = curVictim;
+
+        if (target)
         {
-            entry.staleCombatTimer = 0;
             entry.holdTimer = BOT_POSTCOMBAT_HOLD_MS;   // remember we were fighting
+
+            // Keep an *active* chase on the current target so the bot turns to face
+            // and pursues a moving mob (the chase generator re-faces every ~100ms).
+            // On a target switch, re-issue both; otherwise re-issue only if the
+            // chase was dropped (by a teleport, or a follow we ran while idle).
+            // Without an active chase the bot sits meleeing in place and stops
+            // swinging the instant the target steps out of its 120-degree arc.
+            MotionMaster* mm = bot->GetMotionMaster();
             if (bot->GetVictim() != target)
             {
                 bot->Attack(target, true);
-                bot->GetMotionMaster()->MoveChase(target);
+                mm->MoveChase(target);
             }
+            else if (mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+                mm->MoveChase(target);
             continue;
         }
 
-        // No fresh target this tick. Keep a valid current victim, and only force a
-        // stop after a short stale window so transient target-selection gaps don't
-        // snap the bot out of combat.
-        if (Unit* victim = bot->GetVictim())
-        {
-            bool const victimStillValid = bot->IsValidAttackTarget(victim);
-            bool const victimWithinLeash = bot->GetExactDist(victim) <= BOT_COMBAT_LEASH_DIST;
-            if (victim->IsAlive() && victimStillValid && victimWithinLeash)
-            {
-                entry.staleCombatTimer = 0;
-                continue;
-            }
-
-            bool const keepVictim = BotCombatPolicy::ShouldKeepCurrentVictim(false, victim->IsAlive(),
-                victimStillValid, victimWithinLeash, entry.staleCombatTimer, BOT_STALE_COMBAT_MS);
-            if (keepVictim)
-            {
-                entry.staleCombatTimer += BOT_FOLLOW_INTERVAL_MS;
-                continue;
-            }
-
-            entry.staleCombatTimer = 0;
+        // Nothing left to fight (victim dead / invalid / out of leash, and the
+        // master isn't engaged): drop the now-stale victim and fall through to
+        // follow. The post-combat hold below keeps us from snapping back instantly.
+        if (bot->GetVictim())
             bot->AttackStop();
-        }
-        else
-            entry.staleCombatTimer = 0;
 
         if (entry.holdTimer)
         {
