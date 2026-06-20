@@ -67,6 +67,12 @@ spells.
 - **Started in this slice:** per-owner cohort persistence in the character DB,
   owner-scoped auto-spawn configuration, and pure policy helpers for level-band,
   catch-up XP gating, and continuity auto-accept decisions.
+- **Bot auto-revive:** a dead bot resurrects at the master, but only while the
+  master is alive (so it doesn't blink back into the same death). Gated by
+  `Custom.BotAutoRevive` + `Custom.BotAutoReviveDelayMs`; logic in
+  `BotMgr::UpdateFollow` via the pure `Bots::DeathPolicy::ShouldBotAutoRevive`
+  helper (`BotDeathPolicy.{h,cpp}`). Part of the Death QoL feature — see
+  `docs/superpowers/specs/2026-06-20-death-qol-design.md`.
 
 - **Data source:** the Assisted Combat DB2 tables (`assisted_combat`,
   `assisted_combat_rule`, `assisted_combat_step`) are Blizzard's per-spec ability

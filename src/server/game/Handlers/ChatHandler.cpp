@@ -245,8 +245,8 @@ ChatMessageResult WorldSession::HandleChatMessage(ChatMsg type, Language lang, s
     {
         case CHAT_MSG_SAY:
         {
-            // Prevent cheating
-            if (!sender->IsAlive())
+            // Prevent cheating (Custom: AllowChatWhileDead lifts this for dev/bot servers)
+            if (!sender->IsAlive() && !sWorld->getBoolConfig(CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD))
                 return ChatMessageResult::PlayerDead;
 
             if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_SAY_LEVEL_REQ))
@@ -260,8 +260,8 @@ ChatMessageResult WorldSession::HandleChatMessage(ChatMsg type, Language lang, s
         }
         case CHAT_MSG_EMOTE:
         {
-            // Prevent cheating
-            if (!sender->IsAlive())
+            // Prevent cheating (Custom: AllowChatWhileDead lifts this for dev/bot servers)
+            if (!sender->IsAlive() && !sWorld->getBoolConfig(CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD))
                 return ChatMessageResult::PlayerDead;
 
             if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_EMOTE_LEVEL_REQ))
@@ -275,8 +275,8 @@ ChatMessageResult WorldSession::HandleChatMessage(ChatMsg type, Language lang, s
         }
         case CHAT_MSG_YELL:
         {
-            // Prevent cheating
-            if (!sender->IsAlive())
+            // Prevent cheating (Custom: AllowChatWhileDead lifts this for dev/bot servers)
+            if (!sender->IsAlive() && !sWorld->getBoolConfig(CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD))
                 return ChatMessageResult::PlayerDead;
 
             if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_YELL_LEVEL_REQ))

@@ -39,6 +39,15 @@ SOAP_PORT="${TC_SOAP_PORT:-7878}"
 # bypasses (MapDifficultyConditions + access_requirement, see Player::Satisfy).
 # Default on so bots of any level can zone in; set 0 to restore retail behaviour.
 INSTANCE_IGNORE_LEVEL="${TC_INSTANCE_IGNORE_LEVEL:-1}"
+# Custom: Death QoL (see docs/superpowers/specs/2026-06-20-death-qol-design.md).
+# All default OFF (vanilla); flip to 1 to opt in. Player auto-revive teleports a
+# dead player back to their corpse so there's no graveyard run; bot auto-revive
+# resurrects a dead bot at its master while the master is alive.
+ALLOW_CHAT_WHILE_DEAD="${TC_ALLOW_CHAT_WHILE_DEAD:-0}"
+PLAYER_AUTO_REVIVE_AT_CORPSE="${TC_PLAYER_AUTO_REVIVE_AT_CORPSE:-0}"
+PLAYER_AUTO_REVIVE_DELAY_MS="${TC_PLAYER_AUTO_REVIVE_DELAY_MS:-5000}"
+BOT_AUTO_REVIVE="${TC_BOT_AUTO_REVIVE:-0}"
+BOT_AUTO_REVIVE_DELAY_MS="${TC_BOT_AUTO_REVIVE_DELAY_MS:-5000}"
 # Account-wide collection grants (toys/heirlooms/appearances/warband scenes) default
 # ON in the core, but granting ALL appearances on every login builds an enormous
 # collection update that crashes a real client's login. Off by default here until
@@ -93,6 +102,11 @@ set_conf "SOAP.Enabled"            "$SOAP_ENABLED"       "$CONF"
 set_conf "SOAP.IP"                 "$SOAP_IP"            "$CONF" quote
 set_conf "SOAP.Port"               "$SOAP_PORT"          "$CONF"
 set_conf "Instance.IgnoreLevel"    "$INSTANCE_IGNORE_LEVEL" "$CONF"
+set_conf "Custom.AllowChatWhileDead"        "$ALLOW_CHAT_WHILE_DEAD"        "$CONF"
+set_conf "Custom.PlayerAutoReviveAtCorpse"  "$PLAYER_AUTO_REVIVE_AT_CORPSE" "$CONF"
+set_conf "Custom.PlayerAutoReviveDelayMs"   "$PLAYER_AUTO_REVIVE_DELAY_MS"  "$CONF"
+set_conf "Custom.BotAutoRevive"             "$BOT_AUTO_REVIVE"              "$CONF"
+set_conf "Custom.BotAutoReviveDelayMs"      "$BOT_AUTO_REVIVE_DELAY_MS"     "$CONF"
 set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"          "$CONF"
 set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
 set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"

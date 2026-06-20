@@ -7,6 +7,7 @@
 
 #include "BotMgr.h"
 #include "BotCombatPolicy.h"
+#include "BotDeathPolicy.h"
 #include "CharacterCache.h"
 #include "Chat.h"
 #include "Group.h"
@@ -251,8 +252,30 @@ void BotMgr::UpdateFollow()
 
         // Past the teleport machine: only follow/zone logic from here, which needs
         // a fully in-world, living bot.
-        if (!bot->IsInWorld() || !bot->IsAlive())
+        if (!bot->IsInWorld())
             continue;
+
+        // M4: auto-revive a dead bot -- but only while the master is alive, so it
+        // doesn't blink back into the same death while the owner is also down.
+        // Gated by Custom.BotAutoRevive; once revived it catches up via normal
+        // follow on a later tick.
+        if (!bot->IsAlive())
+        {
+            entry.deadTimer += BOT_FOLLOW_INTERVAL_MS;
+            bool const masterAlive = master && master->IsInWorld() && master->IsAlive();
+            if (Bots::DeathPolicy::ShouldBotAutoRevive(
+                    sWorld->getBoolConfig(CONFIG_CUSTOM_BOT_AUTO_REVIVE),
+                    true, masterAlive, entry.deadTimer,
+                    sWorld->getIntConfig(CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS)))
+            {
+                bot->ResurrectPlayer(1.0f);
+                bot->SpawnCorpseBones();
+                entry.deadTimer = 0;
+                TC_LOG_DEBUG("bots", "Bot '{}' auto-revived (master alive).", bot->GetName());
+            }
+            continue;   // dead (or just-revived) bot doesn't follow/fight this tick
+        }
+        entry.deadTimer = 0;
 
         if (!ms)
             continue;   // master logged off => bot just stands there.
