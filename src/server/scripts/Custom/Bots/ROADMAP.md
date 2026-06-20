@@ -5,7 +5,7 @@ socket**, owned by `BotMgr` and pumped each world tick by `bot_worldscript`. See
 `README.md` for the M1 internals and `CLAUDE.md` (repo root) for the build/run and
 the cross-cutting gotchas.
 
-Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 (next) · M5+ (planned)**
+Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 (started) · M5+ (planned)**
 
 GM commands: `.bot add/remove/follow/stay/count`. `add`/`remove`/`stay`/`count`
 run from the console/SOAP; `follow` needs an in-world player.
@@ -57,10 +57,16 @@ Join the master's party and fight alongside them.
 
 ---
 
-## M4 — Data-driven rotation engine (next)
+## M4 — Cohorts + rotation foundation (started)
 
-Replace the M3 melee baseline with real ability usage, driven by data rather than
-hardcoded spells.
+M4 now starts by adding companion cohort persistence and owner binding on top of
+the existing M3 runtime, then expands into the data-driven rotation engine that
+replaces the M3 melee baseline with real ability usage instead of hardcoded
+spells.
+
+- **Started in this slice:** per-owner cohort persistence in the character DB,
+  owner-scoped auto-spawn configuration, and pure policy helpers for level-band,
+  catch-up XP gating, and continuity auto-accept decisions.
 
 - **Data source:** the Assisted Combat DB2 tables (`assisted_combat`,
   `assisted_combat_rule`, `assisted_combat_step`) are Blizzard's per-spec ability
@@ -74,7 +80,8 @@ hardcoded spells.
 - **Open questions to design:** how to evaluate each rule's condition columns;
   cooldown/GCD/resource gating; targeting for AoE vs single-target steps; a
   fallback rotation for specs/levels with no Assisted Combat data; and how a
-  no-spec low-level bot behaves (likely melee until it has a spec).
+  no-spec low-level bot behaves (likely melee until it has a spec). Owner-bound
+  cohort continuity beyond resurrection/summon remains follow-on work within M4.
 - **Spec prerequisite:** specs unlock at level 10. ⚠️ Don't `.character level` a
   spawned bot to reach that — the console boost crashes the worldserver on save;
   level by playing/escorting (see Open issues).
