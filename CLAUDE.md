@@ -4,6 +4,15 @@ This is a **full TrinityCore `master` (retail, client 12.0.5 / build 67823) fork
 run via a Docker Compose wrapper, plus an in-development **player-bot** system.
 For the full bring-up story and runbook see **`SETUP-NOTES.md`**.
 
+## Custom features — read & update `CHANGELOG-custom.md`
+
+**`CHANGELOG-custom.md` is the authoritative index of every change this fork makes
+on top of upstream TrinityCore** (bots, professions, content fixes, code mods,
+infra). **Read it before starting feature work**, and **update it in the same
+commit whenever you add, remove, or change a custom feature** — including in-place
+edits to upstream source files (record those under *Code modifications to upstream
+files*). If a change isn't in that file, it's invisible to the next session.
+
 ## Build & run (read this first)
 
 - The image `trinitycore:local` is built by the **`bnetserver`** service (it owns
