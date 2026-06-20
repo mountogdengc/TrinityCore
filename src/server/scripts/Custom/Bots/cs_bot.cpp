@@ -204,12 +204,10 @@ private:
 
         std::vector<ObjectGuid> companions = sBotCohortMgr->GetActiveCompanions(owner->GetGUID());
         handler->PSendSysMessage("Cohort auto-spawn: %s", sBotCohortMgr->GetAutoSpawnEnabled(owner->GetGUID()) ? "on" : "off");
+        handler->PSendSysMessage("Active cohort members: %zu", companions.size());
 
         if (companions.empty())
-        {
-            handler->SendSysMessage("No active cohort companions assigned.");
             return true;
-        }
 
         for (ObjectGuid const& companionGuid : companions)
         {

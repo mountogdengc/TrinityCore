@@ -12,6 +12,36 @@
 #include <string>
 #include <vector>
 
+namespace
+{
+bool IsSameAccountCompanion(ObjectGuid ownerGuid, ObjectGuid companionGuid)
+{
+    return sCharacterCache->GetCharacterAccountIdByGuid(ownerGuid) == sCharacterCache->GetCharacterAccountIdByGuid(companionGuid);
+}
+
+void PersistOwnerAutoSpawn(ObjectGuid ownerGuid, bool enabled)
+{
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_REP_BOT_COHORT_OWNER_CONFIG);
+    stmt->setUInt64(0, ownerGuid.GetCounter());
+    stmt->setBool(1, enabled);
+    CharacterDatabase.Execute(stmt);
+}
+
+bool LoadOwnerAutoSpawn(ObjectGuid ownerGuid, bool& enabled)
+{
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_BOT_COHORT_OWNER_CONFIG);
+    stmt->setUInt64(0, ownerGuid.GetCounter());
+
+    if (PreparedQueryResult result = CharacterDatabase.Query(stmt))
+    {
+        enabled = result->Fetch()[0].GetBool();
+        return true;
+    }
+
+    return false;
+}
+}
+
 BotCohortMgr* BotCohortMgr::instance()
 {
     static BotCohortMgr instance;
@@ -76,8 +106,14 @@ bool BotCohortMgr::AssignCompanion(ObjectGuid ownerGuid, ObjectGuid companionGui
         return false;
     }
 
-    std::vector<CohortMember> companions = LoadCompanions(ownerGuid);
-    bool autoSpawnEnabled = companions.empty() ? true : GetAutoSpawnEnabled(ownerGuid);
+    if (IsSameAccountCompanion(ownerGuid, companionGuid))
+    {
+        error = "Companion must be on a different account than the owner.";
+        return false;
+    }
+
+    bool autoSpawnEnabled = GetAutoSpawnEnabled(ownerGuid);
+    PersistOwnerAutoSpawn(ownerGuid, autoSpawnEnabled);
 
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_REP_BOT_COHORT_MEMBER);
     stmt->setUInt64(0, ownerGuid.GetCounter());
@@ -122,21 +158,27 @@ std::vector<ObjectGuid> BotCohortMgr::GetActiveCompanions(ObjectGuid ownerGuid) 
 
 bool BotCohortMgr::GetAutoSpawnEnabled(ObjectGuid ownerGuid) const
 {
+    bool autoSpawnEnabled = true;
+    if (LoadOwnerAutoSpawn(ownerGuid, autoSpawnEnabled))
+        return autoSpawnEnabled;
+
     for (CohortMember const& member : LoadCompanions(ownerGuid))
         if (member.AutoSpawn)
             return true;
 
-    return false;
+    return true;
 }
 
 bool BotCohortMgr::SetAutoSpawnEnabled(ObjectGuid ownerGuid, bool enabled, std::string& error)
 {
-    std::vector<CohortMember> companions = LoadCompanions(ownerGuid);
-    if (companions.empty())
+    if (ownerGuid.IsEmpty())
     {
-        error = "No cohort members are assigned.";
+        error = "Owner is required.";
         return false;
     }
+
+    std::vector<CohortMember> companions = LoadCompanions(ownerGuid);
+    PersistOwnerAutoSpawn(ownerGuid, enabled);
 
     for (CohortMember const& member : companions)
     {
@@ -158,9 +200,9 @@ bool BotCohortMgr::SpawnOwnerCohort(Player* owner, std::string& error)
         return false;
     }
 
-    if (!BotCohortPolicy::ShouldAutoSpawnCohort(GetAutoSpawnEnabled(owner->GetGUID()), owner->IsAlive(), owner->IsInWorld()))
+    if (!BotCohortPolicy::ShouldAutoSpawnCohort(true, owner->IsAlive(), owner->IsInWorld()))
     {
-        error = "Cohort auto-spawn must be enabled and the owner must be alive in the world.";
+        error = "Owner must be alive and in the world to spawn the cohort.";
         return false;
     }
 
@@ -171,10 +213,22 @@ bool BotCohortMgr::SpawnOwnerCohort(Player* owner, std::string& error)
         return false;
     }
 
+    std::vector<std::string> spawnedNames;
     for (ObjectGuid const& companionGuid : companions)
     {
         if (!sBotMgr->AddBot(companionGuid, owner->GetGUID(), error))
+        {
+            for (std::string const& spawnedName : spawnedNames)
+            {
+                std::string rollbackError;
+                sBotMgr->RemoveBot(spawnedName, rollbackError);
+            }
             return false;
+        }
+
+        std::string companionName;
+        if (sCharacterCache->GetCharacterNameByGuid(companionGuid, companionName))
+            spawnedNames.push_back(companionName);
     }
 
     return true;

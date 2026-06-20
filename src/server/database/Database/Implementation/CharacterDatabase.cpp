@@ -111,7 +111,9 @@ void CharacterDatabaseConnection::DoPrepareStatements()
     PrepareStatement(CHAR_SEL_CHAR_POSITION_XYZ, "SELECT map, position_x, position_y, position_z FROM characters WHERE guid = ?", CONNECTION_SYNCH);
     PrepareStatement(CHAR_SEL_CHAR_POSITION, "SELECT position_x, position_y, position_z, orientation, map, taxi_path FROM characters WHERE guid = ?", CONNECTION_SYNCH);
     PrepareStatement(CHAR_SEL_BOT_COHORT_BY_OWNER, "SELECT companion_guid, active, auto_spawn FROM character_bot_cohort WHERE owner_guid = ? ORDER BY companion_guid", CONNECTION_SYNCH);
+    PrepareStatement(CHAR_SEL_BOT_COHORT_OWNER_CONFIG, "SELECT auto_spawn FROM character_bot_cohort_owner WHERE owner_guid = ?", CONNECTION_SYNCH);
     PrepareStatement(CHAR_REP_BOT_COHORT_MEMBER, "REPLACE INTO character_bot_cohort (owner_guid, companion_guid, active, auto_spawn) VALUES (?, ?, ?, ?)", CONNECTION_ASYNC);
+    PrepareStatement(CHAR_REP_BOT_COHORT_OWNER_CONFIG, "REPLACE INTO character_bot_cohort_owner (owner_guid, auto_spawn) VALUES (?, ?)", CONNECTION_ASYNC);
     PrepareStatement(CHAR_DEL_BOT_COHORT_MEMBER, "DELETE FROM character_bot_cohort WHERE owner_guid = ? AND companion_guid = ?", CONNECTION_ASYNC);
     PrepareStatement(CHAR_UPD_BOT_COHORT_AUTO_SPAWN, "UPDATE character_bot_cohort SET auto_spawn = ? WHERE owner_guid = ? AND companion_guid = ?", CONNECTION_ASYNC);
 
