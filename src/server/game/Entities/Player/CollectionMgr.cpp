@@ -525,7 +525,7 @@ void CollectionMgr::GrantAllAppearances()
 
     for (ItemModifiedAppearanceEntry const* itemModifiedAppearance : sItemModifiedAppearanceStore)
         if (CanAddAppearance(itemModifiedAppearance))
-            AddItemAppearance(itemModifiedAppearance);
+            AddItemAppearance(itemModifiedAppearance, AppearanceGrantSource::BulkLoginGrant);
 }
 
 // Grants every warband scene (campsite) account-wide.
@@ -723,7 +723,7 @@ void CollectionMgr::AddItemAppearance(Item* item)
         return;
     }
 
-    AddItemAppearance(itemModifiedAppearance);
+    AddItemAppearance(itemModifiedAppearance, AppearanceGrantSource::Normal);
 }
 
 void CollectionMgr::AddItemAppearance(uint32 itemId, uint32 appearanceModId /*= 0*/)
@@ -732,7 +732,7 @@ void CollectionMgr::AddItemAppearance(uint32 itemId, uint32 appearanceModId /*= 
     if (!CanAddAppearance(itemModifiedAppearance))
         return;
 
-    AddItemAppearance(itemModifiedAppearance);
+    AddItemAppearance(itemModifiedAppearance, AppearanceGrantSource::Normal);
 }
 
 void CollectionMgr::AddTransmogSet(uint32 transmogSetId)
@@ -743,7 +743,7 @@ void CollectionMgr::AddTransmogSet(uint32 transmogSetId)
         if (!itemModifiedAppearance)
             continue;
 
-        AddItemAppearance(itemModifiedAppearance);
+        AddItemAppearance(itemModifiedAppearance, AppearanceGrantSource::Normal);
     }
 }
 
@@ -845,7 +845,7 @@ bool CollectionMgr::CanAddAppearance(ItemModifiedAppearanceEntry const* itemModi
     return true;
 }
 
-void CollectionMgr::AddItemAppearance(ItemModifiedAppearanceEntry const* itemModifiedAppearance)
+void CollectionMgr::AddItemAppearance(ItemModifiedAppearanceEntry const* itemModifiedAppearance, AppearanceGrantSource source)
 {
     Player* owner = _owner->GetPlayer();
     if (_appearances->size() <= itemModifiedAppearance->ID)
@@ -881,8 +881,11 @@ void CollectionMgr::AddItemAppearance(ItemModifiedAppearanceEntry const* itemMod
     {
         if (IsSetCompleted(set->ID))
         {
-            if (Quest const* quest = sObjectMgr->GetQuestTemplate(set->TrackingQuestID))
-                owner->RewardQuest(quest, LootItemType::Item, 0, owner, false);
+            if (ShouldGrantAppearanceSetRewards(source))
+            {
+                if (Quest const* quest = sObjectMgr->GetQuestTemplate(set->TrackingQuestID))
+                    owner->RewardQuest(quest, LootItemType::Item, 0, owner, false);
+            }
 
             owner->UpdateCriteria(CriteriaType::CollectTransmogSetFromGroup, set->TransmogSetGroupID);
         }

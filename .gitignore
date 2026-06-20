@@ -1,5 +1,8 @@
 
 build*/
+*-build/
+.superpowers/sdd/tc-tests-build/
+build-red.log
 .directory
 .mailmap
 *.orig
