@@ -2248,6 +2248,10 @@ uint32 Item::GetSellPrice(ItemTemplate const* proto, uint32 quality, uint32 item
     // grey with a stored sell price of a few copper regenerating into tens of gold). Since the client
     // itself displays and expects the stored sell price, trust it for items whose level (and therefore
     // price) does not scale at runtime, and only fall back to the formula when no stored price exists.
+    // Only the template-level scaling curves are inspected here; bonus lists can also set these curve
+    // IDs on an item instance's BonusData, which this static helper cannot see. That is harmless in
+    // practice: such items are modern and carry a stored SellPrice of 0, so the guard below fails and
+    // they fall through to the generation formula anyway.
     bool const scalesWithLevel = proto->GetPlayerLevelToItemLevelCurveId() || proto->GetItemLevelOffsetCurveId();
     if (!scalesWithLevel)
         if (uint32 sellPrice = proto->GetSellPrice())
