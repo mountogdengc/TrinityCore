@@ -77,6 +77,16 @@ spells.
 - **Resolver loop:** per combat tick, evaluate the spec's rules in priority order
   (range, resource, cooldown, target state) and cast the first eligible step's
   spell at the current victim; fall back to melee when nothing is castable.
+- **Target retention fix (carried into M4):** when the master targets a *friendly*
+  (e.g. a healer clicking a party member to heal), `SelectAssistTarget` returns
+  null and the bot must hold its current victim — but the live "stay committed"
+  fallback (`BotMgr.cpp` `inActiveCombat`) still gates on the unreliable bot-side
+  `bot->IsValidAttackTarget(curVictim)`, so for any mob that trips the
+  asymmetric-visibility bug the bot drops combat the instant your target stops
+  being an eligible enemy. Fix: validate the kept victim with the *master*-side
+  validity already used across M3 (alive + not-friendly + within leash), and route
+  it through the existing-but-unused `BotCombatPolicy::ShouldKeepCurrentVictim`
+  helper (currently dead code). Small, self-contained, no rotation dependency.
 - **Open questions to design:** how to evaluate each rule's condition columns;
   cooldown/GCD/resource gating; targeting for AoE vs single-target steps; a
   fallback rotation for specs/levels with no Assisted Combat data; and how a
