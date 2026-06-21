@@ -194,6 +194,16 @@ doesn't silently revert them):
   `/emote` dead-checks behind `Custom.AllowChatWhileDead`.
 - **`src/server/scripts/Commands/cs_misc.cpp`** — adds the `.revive corpse`
   variant to `HandleReviveCommand`.
+- **`src/server/game/Entities/Unit/Unit.cpp`** — ⚠️ **TEMPORARY DIAGNOSTIC** in
+  `Unit::CalcAbsorbResist` (school-absorb loop): a `TC_LOG_ERROR("spells",
+  "[ABSORB-DIAG] …")` line dumping `incomingDamage / shieldBefore /
+  reportedAbsorbed / shieldAfter / leakedDamage` for every absorb-shield hit (e.g.
+  Power Word: Shield). Added to diagnose a report of PW:Shield over-absorbing /
+  vanishing in one hit vs a low-level mob. The checked-in absorb code clamps
+  absorbed ≤ incoming damage (`RoundToInterval`, `DamageInfo::AbsorbDamage`), so a
+  logged `reportedAbsorbed > incomingDamage` would prove the running binary is
+  **stale** (built from older code), not this source. **Remove this log line once
+  the issue is diagnosed.**
 
 ---
 
