@@ -39,6 +39,14 @@ SOAP_PORT="${TC_SOAP_PORT:-7878}"
 # bypasses (MapDifficultyConditions + access_requirement, see Player::Satisfy).
 # Default on so bots of any level can zone in; set 0 to restore retail behaviour.
 INSTANCE_IGNORE_LEVEL="${TC_INSTANCE_IGNORE_LEVEL:-1}"
+# Account-wide collection grants (toys/heirlooms/appearances/warband scenes) default
+# ON in the core, but granting ALL appearances on every login builds an enormous
+# collection update that crashes a real client's login. Off by default here until
+# the grant is batched/safe; set per-flag to 1 to opt back in.
+COLLECTIONS_GRANT_ALL_TOYS="${TC_COLLECTIONS_GRANT_ALL_TOYS:-0}"
+COLLECTIONS_GRANT_ALL_HEIRLOOMS="${TC_COLLECTIONS_GRANT_ALL_HEIRLOOMS:-0}"
+COLLECTIONS_GRANT_ALL_APPEARANCES="${TC_COLLECTIONS_GRANT_ALL_APPEARANCES:-0}"
+COLLECTIONS_GRANT_ALL_WARBAND_SCENES="${TC_COLLECTIONS_GRANT_ALL_WARBAND_SCENES:-0}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
@@ -85,6 +93,10 @@ set_conf "SOAP.Enabled"            "$SOAP_ENABLED"       "$CONF"
 set_conf "SOAP.IP"                 "$SOAP_IP"            "$CONF" quote
 set_conf "SOAP.Port"               "$SOAP_PORT"          "$CONF"
 set_conf "Instance.IgnoreLevel"    "$INSTANCE_IGNORE_LEVEL" "$CONF"
+set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"          "$CONF"
+set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
+set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"
+set_conf "Collections.GrantAllWarbandScenes" "$COLLECTIONS_GRANT_ALL_WARBAND_SCENES" "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.

@@ -32,6 +32,12 @@ class Item;
 class WorldSession;
 struct ItemModifiedAppearanceEntry;
 
+enum class AppearanceGrantSource : uint8
+{
+    Normal,
+    BulkLoginGrant
+};
+
 enum class CollectionItemState : uint8
 {
     Unchanged,
@@ -121,6 +127,8 @@ public:
     void LoadCharacterData();
     void SaveToDB(LoginDatabaseTransaction trans);
 
+    static bool ShouldGrantAppearanceSetRewards(AppearanceGrantSource source) { return source == AppearanceGrantSource::Normal; }
+
     // Grant every collectible of a given type account-wide (gated by config)
     void GrantAllToys();
     void GrantAllHeirlooms();
@@ -209,7 +217,7 @@ public:
 
 private:
     bool CanAddAppearance(ItemModifiedAppearanceEntry const* itemModifiedAppearance) const;
-    void AddItemAppearance(ItemModifiedAppearanceEntry const* itemModifiedAppearance);
+    void AddItemAppearance(ItemModifiedAppearanceEntry const* itemModifiedAppearance, AppearanceGrantSource source);
     void AddTemporaryAppearance(ObjectGuid const& itemGuid, ItemModifiedAppearanceEntry const* itemModifiedAppearance);
 
     WorldSession* _owner;

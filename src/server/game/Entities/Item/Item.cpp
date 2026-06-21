@@ -2240,26 +2240,38 @@ uint32 Item::GetSellPrice(ItemTemplate const* proto, uint32 quality, uint32 item
 {
     if (proto->HasFlag(ITEM_FLAG2_OVERRIDE_GOLD_COST))
         return proto->GetSellPrice();
-    else
+
+    // The standard-price branch below re-derives the price using Blizzard's price *generation*
+    // formula (ItemPriceBase / ImportPrice* reference data). That only reproduces the value stored
+    // in item_sparse when the loaded reference data matches the era the item was authored in; for
+    // legacy items priced against an older era it can diverge by orders of magnitude (e.g. a vanilla
+    // grey with a stored sell price of a few copper regenerating into tens of gold). Since the client
+    // itself displays and expects the stored sell price, trust it for items whose level (and therefore
+    // price) does not scale at runtime, and only fall back to the formula when no stored price exists.
+    // Only the template-level scaling curves are inspected here; bonus lists can also set these curve
+    // IDs on an item instance's BonusData, which this static helper cannot see. That is harmless in
+    // practice: such items are modern and carry a stored SellPrice of 0, so the guard below fails and
+    // they fall through to the generation formula anyway.
+    bool const scalesWithLevel = proto->GetPlayerLevelToItemLevelCurveId() || proto->GetItemLevelOffsetCurveId();
+    if (!scalesWithLevel)
+        if (uint32 sellPrice = proto->GetSellPrice())
+            return sellPrice;
+
+    bool standardPrice;
+    uint32 cost = Item::GetBuyPrice(proto, quality, itemLevel, standardPrice);
+
+    if (standardPrice)
     {
-        bool standardPrice;
-        uint32 cost = Item::GetBuyPrice(proto, quality, itemLevel, standardPrice);
-
-        if (standardPrice)
+        if (ItemClassEntry const* classEntry = sDB2Manager.GetItemClassByOldEnum(proto->GetClass()))
         {
-            if (ItemClassEntry const* classEntry = sDB2Manager.GetItemClassByOldEnum(proto->GetClass()))
-            {
-                uint32 buyCount = std::max(proto->GetBuyCount(), 1u);
-                return cost * classEntry->PriceModifier / buyCount;
-            }
-
-            return 0;
+            uint32 buyCount = std::max(proto->GetBuyCount(), 1u);
+            return cost * classEntry->PriceModifier / buyCount;
         }
-        else
-            return proto->GetSellPrice();
+
+        return 0;
     }
 
-    return 0;
+    return proto->GetSellPrice();
 }
 
 uint32 Item::GetItemLevel(Player const* owner) const

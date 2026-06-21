@@ -20,12 +20,15 @@
 #include <unordered_map>
 
 class Player;
+class Unit;
 class WorldSession;
 
 class BotMgr
 {
 public:
     static BotMgr* instance();
+
+    bool AddBot(ObjectGuid characterGuid, ObjectGuid master, std::string& error);
 
     // Spawn the named character into the world as a headless bot. If `master` is
     // not empty (M2), the bot follows that player. Returns false + fills `error`.
@@ -55,7 +58,8 @@ private:
     struct BotEntry
     {
         WorldSession* session;
-        ObjectGuid    master;   // empty => idle (M1 behaviour: hold position)
+        ObjectGuid    master;            // empty => idle (M1 behaviour: hold position)
+        uint32        holdTimer = 0;     // M3: ms left to linger after a fight before re-following
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -65,6 +69,11 @@ private:
     // so they share quest/loot context and -- crucially -- the same dungeon/raid
     // instance when zoning.
     void EnsureGrouped(Player* bot, Player* master);
+
+    // M3: pick who the bot should fight -- the master's target while they're in
+    // combat (assist), else whatever is attacking the bot (defend self). Returns
+    // nullptr when there's nothing to fight.
+    Unit* SelectAssistTarget(Player* bot, Player* master);
 
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;

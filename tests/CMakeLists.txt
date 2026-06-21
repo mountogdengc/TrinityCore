@@ -16,6 +16,11 @@ CollectAndAddSourceFiles(
   tests
   ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_sources(tests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCombatPolicy.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCohortPolicy.cpp)
+
 target_link_libraries(tests
   PRIVATE
     trinity-core-interface
@@ -24,7 +29,8 @@ target_link_libraries(tests
 
 target_include_directories(tests
   PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR})
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots)
 
 catch_discover_tests(tests)
 
