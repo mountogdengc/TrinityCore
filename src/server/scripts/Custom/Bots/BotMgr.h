@@ -60,6 +60,7 @@ private:
         WorldSession* session;
         ObjectGuid    master;                // empty => idle (M1 behaviour: hold position)
         uint32        holdTimer = 0;         // M3: ms left to linger after a fight before re-following
+        uint32        deadTimer = 0;         // M4: ms the bot has been dead (drives auto-revive)
         uint32        staleCombatTimer = 0;  // M4: ms the current victim has looked invalid (kept until BOT_STALE_COMBAT_MS)
     };
 

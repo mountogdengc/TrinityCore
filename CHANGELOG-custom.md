@@ -119,6 +119,32 @@ Key files: `src/server/scripts/EasternKingdoms/tirisfal_recruitment.{h,cpp}`,
 hooked from `zone_tirisfal_glades.cpp`.
 Tests: `tests/game/TirisfalRecruitment.cpp`.
 
+## Death QoL — chat while dead, no-run revive, bot auto-revive
+
+Status: **done**
+
+Config-gated relaxations of the dead state (all **default off** — vanilla unless
+opted in). Flags toggle on a worldserver restart (no rebuild) via entrypoint env.
+
+- **Chat while dead** (`Custom.AllowChatWhileDead`) — bypasses the server-side
+  `/say` `/yell` `/emote` dead block. Mainly for headless bots (no client).
+- **Player auto-revive at corpse** (`Custom.PlayerAutoReviveAtCorpse` +
+  `Custom.PlayerAutoReviveDelayMs`) — teleports a dead player to their corpse and
+  resurrects there (full HP, no sickness) after a delay; all players;
+  battlegrounds/arenas excluded.
+- **`.revive corpse`** — manual self-revive at corpse (no config; existing revive
+  RBAC). Plain `.revive` unchanged.
+- **Bot auto-revive** (`Custom.BotAutoRevive` + `Custom.BotAutoReviveDelayMs`) —
+  resurrects a dead bot at its master, only while the master is alive.
+
+Key files: `src/server/scripts/Custom/DeathQoL/DeathQoL.{h,cpp}` (player path +
+shared corpse-return helper), `src/server/scripts/Custom/Bots/BotDeathPolicy.{h,cpp}`
+(pure decision helpers), `BotMgr.cpp` (bot path), `cs_misc.cpp` (`.revive corpse`),
+`ChatHandler.cpp` (chat gate). Config: `World.{h,cpp}`, `worldserver.conf.dist`,
+`docker/worldserver/entrypoint.sh`.
+Tests: `tests/game/DeathRevivePolicy.cpp`.
+Deeper docs: `docs/superpowers/specs/2026-06-20-death-qol-design.md`.
+
 ## World / DB content fixes
 
 Status: **ongoing**
@@ -162,6 +188,12 @@ doesn't silently revert them):
   `sAssistedCombatRuleStore`, `sAssistedCombatStepStore`). Upstream defines them in
   `DB2Stores.cpp` but exposes them to no other translation unit; the declarations let
   the M4 bot rotation engine (`BotRotation`) read them.
+- **`src/server/game/World/World.{h,cpp}`** — adds the five `CONFIG_CUSTOM_*`
+  Death QoL config keys (enum + loader).
+- **`src/server/game/Handlers/ChatHandler.cpp`** — guards the `/say` `/yell`
+  `/emote` dead-checks behind `Custom.AllowChatWhileDead`.
+- **`src/server/scripts/Commands/cs_misc.cpp`** — adds the `.revive corpse`
+  variant to `HandleReviveCommand`.
 
 ---
 

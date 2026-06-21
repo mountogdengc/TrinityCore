@@ -74,6 +74,12 @@ stays the combat baseline** until that track lands.
 - **Success criteria:** logging into a character can auto-bring that character's
   active cohort (when enabled); different characters own distinct cohorts; the
   system can classify each companion as below / in / above band.
+- **Bot auto-revive:** a dead bot resurrects at the master, but only while the
+  master is alive (so it doesn't blink back into the same death). Gated by
+  `Custom.BotAutoRevive` + `Custom.BotAutoReviveDelayMs`; logic in
+  `BotMgr::UpdateFollow` via the pure `Bots::DeathPolicy::ShouldBotAutoRevive`
+  helper (`BotDeathPolicy.{h,cpp}`). Part of the Death QoL feature — see
+  `docs/superpowers/specs/2026-06-20-death-qol-design.md`.
 - **Spec prerequisite (carried forward for the rotation track):** specs unlock at
   level 10. ⚠️ Don't `.character level` a spawned bot to reach that — the console
   boost crashes the worldserver on save; level by playing/escorting (see Open

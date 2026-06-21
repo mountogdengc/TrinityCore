@@ -622,6 +622,10 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "InstantFlightPaths"sv, .DefaultValue = false, .Index = CONFIG_INSTANT_TAXI },
         { .Name = "Instance.IgnoreLevel"sv, .DefaultValue = false, .Index = CONFIG_INSTANCE_IGNORE_LEVEL },
         { .Name = "Instance.IgnoreRaid"sv, .DefaultValue = false, .Index = CONFIG_INSTANCE_IGNORE_RAID },
+        // Custom: Death QoL (see docs/superpowers/specs/2026-06-20-death-qol-design.md)
+        { .Name = "Custom.AllowChatWhileDead"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD },
+        { .Name = "Custom.PlayerAutoReviveAtCorpse"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_AT_CORPSE },
+        { .Name = "Custom.BotAutoRevive"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_BOT_AUTO_REVIVE },
         { .Name = "CastUnstuck"sv, .DefaultValue = true, .Index = CONFIG_CAST_UNSTUCK },
         { .Name = "GM.AllowInvite"sv, .DefaultValue = false, .Index = CONFIG_ALLOW_GM_GROUP },
         { .Name = "GM.LowerSecurity"sv, .DefaultValue = false, .Index = CONFIG_GM_LOWER_SECURITY },
@@ -824,6 +828,9 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "Corpse.Decay.Trivial"sv, .DefaultValue = 300, .Index = CONFIG_CORPSE_DECAY_TRIVIAL },
         { .Name = "Corpse.Decay.MinusMob"sv, .DefaultValue = 150, .Index = CONFIG_CORPSE_DECAY_MINUSMOB },
         { .Name = "Death.SicknessLevel"sv, .DefaultValue = 11, .Index = CONFIG_DEATH_SICKNESS_LEVEL },
+        // Custom: Death QoL (see docs/superpowers/specs/2026-06-20-death-qol-design.md)
+        { .Name = "Custom.PlayerAutoReviveDelayMs"sv, .DefaultValue = 5000, .Index = CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_DELAY_MS, .Min = 0 },
+        { .Name = "Custom.BotAutoReviveDelayMs"sv, .DefaultValue = 5000, .Index = CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS, .Min = 0 },
         { .Name = "Battleground.ReportAFK"sv, .DefaultValue = 3, .Index = CONFIG_BATTLEGROUND_REPORT_AFK, .Min = 1, .Max = 9 },
         { .Name = "Battleground.InvitationType"sv, .DefaultValue = 0, .Index = CONFIG_BATTLEGROUND_INVITATION_TYPE },
         { .Name = "Battleground.PrematureFinishTimer"sv, .DefaultValue = 5 * MINUTE * IN_MILLISECONDS, .Index = CONFIG_BATTLEGROUND_PREMATURE_FINISH_TIMER },

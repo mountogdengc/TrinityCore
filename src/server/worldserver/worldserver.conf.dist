@@ -1083,6 +1083,54 @@ Instance.IgnoreLevel = 0
 
 Instance.IgnoreRaid = 0
 
+###############################################################################
+# CUSTOM: DEATH QOL (fork addition)
+#   See docs/superpowers/specs/2026-06-20-death-qol-design.md and CHANGELOG-custom.md
+#
+#    Custom.AllowChatWhileDead
+#        Description: Lift the server-side block on /say /yell /emote while dead.
+#                     Mainly useful for headless bots (no client). Real clients
+#                     still gate /say client-side.
+#        Default:     0 - (Disabled, vanilla)
+#                     1 - (Enabled)
+
+Custom.AllowChatWhileDead = 0
+
+#
+#    Custom.PlayerAutoReviveAtCorpse
+#        Description: Automatically teleport a dead player to their corpse and
+#                     resurrect them there (full HP, no sickness) after a delay.
+#                     Applies to all players. Battlegrounds/arenas are excluded.
+#        Default:     0 - (Disabled, vanilla)
+#                     1 - (Enabled)
+
+Custom.PlayerAutoReviveAtCorpse = 0
+
+#
+#    Custom.PlayerAutoReviveDelayMs
+#        Description: Delay (milliseconds) after death before a player auto-revives.
+#        Default:     5000
+
+Custom.PlayerAutoReviveDelayMs = 5000
+
+#
+#    Custom.BotAutoRevive
+#        Description: Automatically resurrect a dead player-bot at its master, but
+#                     only while the master is alive.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+Custom.BotAutoRevive = 0
+
+#
+#    Custom.BotAutoReviveDelayMs
+#        Description: Delay (milliseconds) after death before a bot auto-revives.
+#        Default:     5000
+
+Custom.BotAutoReviveDelayMs = 5000
+
+###############################################################################
+
 #
 #    Instance.UnloadDelay
 #        Description: Time (in milliseconds) before instance maps are unloaded from memory if no

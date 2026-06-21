@@ -19,7 +19,8 @@ CollectAndAddSourceFiles(
 target_sources(tests
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCombatPolicy.cpp
-    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCohortPolicy.cpp)
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCohortPolicy.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotDeathPolicy.cpp)
 
 target_link_libraries(tests
   PRIVATE

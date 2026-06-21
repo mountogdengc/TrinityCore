@@ -16,6 +16,8 @@
  */
 
 #include "ScriptMgr.h"
+#include "../Custom/Bots/BotDeathPolicy.h"
+#include "../Custom/DeathQoL/DeathQoL.h"
 #include "AccountMgr.h"
 #include "ArenaTeamMgr.h"
 #include "CellImpl.h"
@@ -624,6 +626,33 @@ public:
 
     static bool HandleReviveCommand(ChatHandler* handler, char const* args)
     {
+        // Custom: ".revive corpse" returns the caster to their own corpse and
+        // resurrects there (no graveyard run). Self-only; plain ".revive" keeps
+        // stock behaviour. See docs/superpowers/specs/2026-06-20-death-qol-design.md
+        if (Bots::DeathPolicy::IsReviveCorpseArg(args))
+        {
+            Player* self = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+            if (!self)
+                return false;
+
+            if (self->IsAlive())
+            {
+                handler->SendSysMessage("You are not dead.");
+                handler->SetSentErrorMessage(true);
+                return false;
+            }
+
+            if (!Custom::DeathQoL::ReturnToCorpseAndResurrect(self))
+            {
+                handler->SendSysMessage("You have no corpse to return to.");
+                handler->SetSentErrorMessage(true);
+                return false;
+            }
+
+            self->SaveToDB();
+            return true;
+        }
+
         Player* target;
         ObjectGuid targetGuid;
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid))

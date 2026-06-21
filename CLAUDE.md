@@ -108,6 +108,15 @@ Headless bots: a real `Player` driven by a `WorldSession` with a **null socket**
   with malformed author lines are grandfathered (a non-fork repo gets fsck-rejected
   on push, surfacing as an opaque HTTP 500 over HTTPS). `http.sslBackend=openssl`.
 - The lightweight overlay variant lives at `mountogdengc/TrinityCore-overlay`.
+- 🚫 **NEVER push to or open a PR against `TrinityCore/TrinityCore` (the official
+  upstream org).** All pushes and PRs go to the fork `mountogdengc/TrinityCore`.
+  This is enforced three ways: the `upstream` remote is **removed**, `gh`'s
+  default repo is pinned to the fork (`gh repo set-default mountogdengc/TrinityCore`),
+  and a **`.git/hooks/pre-push` guard aborts any push whose URL matches
+  `TrinityCore/TrinityCore`**. Do **not** re-add an `upstream` remote or change
+  these. If you need to sync retail changes, fetch from a temporary remote with a
+  non-`upstream` name and never push to it. When creating PRs, always pass
+  `--repo mountogdengc/TrinityCore`.
 
 ## Gotchas
 
