@@ -5,7 +5,7 @@ socket**, owned by `BotMgr` and pumped each world tick by `bot_worldscript`. See
 `README.md` for the M1 internals and `CLAUDE.md` (repo root) for the build/run and
 the cross-cutting gotchas.
 
-Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 (started) · M5+ (planned)**
+Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (deferred, separate track)**
 
 GM commands: `.bot add/remove/follow/stay/count`. `add`/`remove`/`stay`/`count`
 run from the console/SOAP; `follow` needs an in-world player.
@@ -57,44 +57,94 @@ Join the master's party and fight alongside them.
 
 ---
 
-## M4 — Cohorts + rotation foundation (started)
+## M4 — Cohort foundation (started)
 
-M4 now starts by adding companion cohort persistence and owner binding on top of
-the existing M3 runtime, then expands into the data-driven rotation engine that
-replaces the M3 melee baseline with real ability usage instead of hardcoded
-spells.
+Introduce the per-character companion-cohort model on top of the existing M3
+runtime. This is the M4 scope **of record** (see the spec/plan below). The
+data-driven rotation engine that earlier drafts folded into M4 is now a
+**separate, deferred track** (see *Rotation engine* below); the **M3 melee loop
+stays the combat baseline** until that track lands.
 
 - **Started in this slice:** per-owner cohort persistence in the character DB,
   owner-scoped auto-spawn configuration, and pure policy helpers for level-band,
   catch-up XP gating, and continuity auto-accept decisions.
+- **Scope:** persistent per-character cohort assignment; active vs benched
+  membership; per-character auto-spawn config; cohort spawn-on-login flow; target
+  level-band evaluation; catch-up XP state evaluation.
+- **Success criteria:** logging into a character can auto-bring that character's
+  active cohort (when enabled); different characters own distinct cohorts; the
+  system can classify each companion as below / in / above band.
+- **Spec prerequisite (carried forward for the rotation track):** specs unlock at
+  level 10. ⚠️ Don't `.character level` a spawned bot to reach that — the console
+  boost crashes the worldserver on save; level by playing/escorting (see Open
+  issues).
 
-- **Data source:** the Assisted Combat DB2 tables (`assisted_combat`,
-  `assisted_combat_rule`, `assisted_combat_step`) are Blizzard's per-spec ability
+Design of record: `docs/superpowers/specs/2026-06-20-companion-cohorts-design.md`,
+`docs/superpowers/plans/2026-06-20-companion-cohorts.md`.
+
+## M5 — Continuity (planned)
+
+Lifecycle behaviors that keep the cohort together during real play: accept
+resurrection; death recovery + rejoin when no res is available; accept summons;
+basic travel-continuity handling for party cohesion. Success: ordinary deaths and
+summons don't permanently fracture the cohort, and companions rejoin without a
+manual despawn/respawn.
+
+## M6 — Visibility (planned)
+
+Expose companion progression to the owner simply: cohort status view; quest list
+with per-objective progress (e.g. `3/12 Northwatch Lugs`); compatibility /
+blocked reasons (wrong faction, level mismatch, missing prerequisite chain, zone
+incompatibility); catch-up XP state. Success: the owner can see why a companion is
+behind or blocked, and enough quest progress to help it catch up.
+
+## M7 — Party progression (planned)
+
+Real grouped progression: XP gain while adventuring with the owner; catch-up XP
+multiplier when below band (auto-off once back in band); grouped quest
+advancement; rough level parity over time — all from normal play, not DB edits.
+
+## M8 — Adventure actions (planned)
+
+First practical self-maintenance while the owner is present: loot evaluation;
+equipping obvious upgrades; basic vendor repair; selling junk. Success: companions
+stay reasonably usable without per-step manual intervention.
+
+---
+
+## Rotation engine — real ability usage (deferred, separate track)
+
+**Not part of the M4 cohort milestone.** Parked as its own track that layers on
+top of the M3 baseline (target selection, chase/movement, stale-combat handling,
+melee fallback) once the cohort foundation is stable. Sequencing relative to
+M5–M8 is open. Until it lands, melee auto-attack remains the combat baseline.
+
+- **Intended data source:** the Assisted Combat DB2 tables (`assisted_combat`,
+  `assisted_combat_rule`, `assisted_combat_step`) — Blizzard's per-spec ability
   priority lists, already loaded in-core. Retail resolves the Single-Button
-  Assistant **client-side**, which a headless bot can't use — so M4 is a
-  **server-side resolver** that walks the rule/step lists for the bot's spec and
-  casts the top castable ability.
-- **Resolver loop:** per combat tick, evaluate the spec's rules in priority order
-  (range, resource, cooldown, target state) and cast the first eligible step's
-  spell at the current victim; fall back to melee when nothing is castable.
+  Assistant **client-side**, which a headless bot can't use — so the plan is a
+  **server-side resolver** that, per combat tick, walks the rule/step lists for
+  the bot's spec, casts the top castable ability at the current victim, and falls
+  back to melee when nothing is castable.
+- **Prior art (exploratory spike, not the plan):**
+  `sql/custom/spike_assisted_combat_hunter_lowlevel.sql` is a **client-side**
+  hotfix experiment — it pushes custom `assisted_combat` rows for the Hunter
+  "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the 12.0
+  client renders a rotation before level 10. It does **not** drive a bot (no
+  server-side resolver, no client) and is tracked in `CHANGELOG-custom.md` as a
+  spike, separate from these milestones.
 - **Open questions to design:** how to evaluate each rule's condition columns;
-  cooldown/GCD/resource gating; targeting for AoE vs single-target steps; a
-  fallback rotation for specs/levels with no Assisted Combat data; and how a
-  no-spec low-level bot behaves (likely melee until it has a spec). Owner-bound
-  cohort continuity beyond resurrection/summon remains follow-on work within M4.
-- **Spec prerequisite:** specs unlock at level 10. ⚠️ Don't `.character level` a
-  spawned bot to reach that — the console boost crashes the worldserver on save;
-  level by playing/escorting (see Open issues).
+  cooldown/GCD/resource gating; AoE vs single-target step targeting; a fallback
+  rotation for specs/levels with no Assisted Combat data; and how a no-spec
+  low-level bot behaves (likely melee until it has a spec).
 
-## M5+ — Questing / looting / gear / parties (planned)
+## Later — multi-bot parties & tactics (parking lot)
 
-Rough scope, to be split into its own milestones and specced when reached:
-
-- **Looting:** auto-loot kills (and respect the master's loot rules in a group).
-- **Gear:** equip upgrades from loot/quest rewards; basic stat weighting.
-- **Questing:** accept/turn-in and complete simple quests alongside the master.
-- **Multi-bot parties:** several bots in one group with role awareness
-  (tank/heal/dps), enough to **fill a dungeon group** behind a single player.
+Beyond the cohort milestones, recorded so they aren't lost (see the spec's
+parking lot for the full list): multi-bot groups with role awareness
+(tank/heal/dps) enough to **fill a dungeon group** behind one player;
+stance-style commands; AoE avoidance / pull logic; dungeon & raid support; and
+further out, economy/AH, social/personality, and LLM-backed systems.
 
 ---
 

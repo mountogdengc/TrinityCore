@@ -30,7 +30,7 @@ something that already exists.
 
 ## Player-bots — headless companions
 
-Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 (started) · M5+ (planned)**
+Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (deferred)**
 
 A real `Player` driven by a `WorldSession` with a null socket, owned by `BotMgr`
 and pumped each world tick by `bot_worldscript`.
@@ -39,8 +39,11 @@ and pumped each world tick by `bot_worldscript`.
 - **M2** — follow + zone with the master across maps and into instances (the
   socketless cross-map teleport state machine; dungeon level-gate handling).
 - **M3** — group with the master + melee assist combat (assist master's victim,
-  defend self, retarget, post-combat hold).
-- **M4** — cohorts + data-driven rotation engine (started; see below).
+  defend self, retarget, post-combat hold). Melee is the combat baseline until
+  the rotation engine lands.
+- **M4** — companion cohort foundation: persistence, owner binding, auto-spawn,
+  level-band + catch-up XP evaluation (started; see below). The data-driven
+  rotation engine is now a **separate, deferred track**, not part of M4.
 
 GM commands: `.bot add/remove/follow/stay/count` (`add`/`remove`/`stay`/`count`
 work from console/SOAP; `follow` needs an in-world player).
@@ -65,18 +68,23 @@ Key files: `src/server/scripts/Custom/Bots/BotCohortMgr.{h,cpp}`,
 Deeper docs: `docs/superpowers/specs/2026-06-20-companion-cohorts-design.md`,
 `docs/superpowers/plans/2026-06-20-companion-cohorts.md`.
 
-## Assisted-combat rotation — M4 spike
+## Assisted-combat rotation — spike (deferred rotation track)
 
-Status: **spike (Hunter low-level only)**
+Status: **spike (Hunter low-level only) — not part of the M4 cohort milestone**
 
-Server-side resolver experiment that walks Blizzard's Assisted Combat DB2 priority
-lists (`assisted_combat` / `_rule` / `_step`) for the bot's spec and casts the top
+Exploratory work toward the eventual **rotation engine** (a deferred, separate
+track from the M4 cohort foundation). The end goal is a *server-side* resolver
+that walks Blizzard's Assisted Combat DB2 priority lists
+(`assisted_combat` / `_rule` / `_step`) for the bot's spec and casts the top
 castable ability — the headless replacement for the client-side Single-Button
-Assistant. Currently a low-level Hunter proof of concept; generalization is the
-core of M4.
+Assistant. **That resolver is not built yet.** The current artifact is instead a
+**client-side** hotfix experiment: it pushes custom `assisted_combat` rows for the
+Hunter "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the
+12.0 client renders a rotation before level 10. It does not drive a bot.
 
 Key files: `sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
-Deeper docs: M4 section of `src/server/scripts/Custom/Bots/ROADMAP.md`.
+Deeper docs: *Rotation engine* section of
+`src/server/scripts/Custom/Bots/ROADMAP.md`.
 
 ## Custom secondary professions
 
