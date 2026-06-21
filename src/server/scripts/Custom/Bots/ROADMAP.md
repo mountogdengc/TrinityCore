@@ -149,12 +149,12 @@ fallback whenever no ability is castable.
   `IsValidAttackTarget` (alive + not-friendly + within leash) instead of the
   unreliable bot-side gate, routed through `BotCombatPolicy::ShouldKeepCurrentVictim`
   with a `BOT_STALE_COMBAT_MS` (2 s) grace window for transient LoS/phase blips.
-- **Prior art (exploratory spike):**
-  `sql/custom/spike_assisted_combat_hunter_lowlevel.sql` is a **client-side**
-  hotfix experiment — it pushes custom `assisted_combat` rows for the Hunter
-  "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the 12.0
-  client renders a rotation before level 10. The steps-only data it ships is
-  consumed by the same resolver path.
+- **Low-level data (Hunter / Priest / Warrior):**
+  `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql` ships custom
+  `assisted_combat` Initial-spec steps for sub-10 Hunter, Priest, and Warrior bots
+  (auto-applied by the updater; loaded server-side into `sAssistedCombatStore`,
+  not the client). Unconditional damage only until the rule-condition slice lands.
+  Supersedes the earlier manual Hunter spike file.
 - **Open questions still to design:** how to evaluate each rule's condition columns
   (the next slice); cooldown/GCD/resource gating refinements; AoE vs single-target
   step targeting; cast-time abilities vs the melee chase (movement interrupts

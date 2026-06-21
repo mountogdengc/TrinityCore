@@ -86,14 +86,16 @@ ability the bot can actually cast — known (`HasSpell`), off cooldown/GCD
 casts it; melee auto-attack carries the rotation between casts and covers
 specs/levels with no castable ability (`SelectSpell` returns 0). The rules'
 `ConditionType` / `ConditionValueN` columns are intentionally **not** evaluated yet
-— decoding Blizzard's condition opcodes is a follow-on slice. The low-level Hunter
-hotfix spike (steps-only, no rules) is consumed by the same path.
+— decoding Blizzard's condition opcodes is a follow-on slice. The low-level Hunter/Priest/Warrior
+hotfix data (steps-only, no rules) is consumed by the same path.
 
 Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
-combat loop in `BotMgr::UpdateFollow`. Low-level data:
-`sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
+combat loop in `BotMgr::UpdateFollow`. Low-level data (Hunter / Priest / Warrior
+Initial specs), auto-applied by the updater:
+`sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql`.
 Deeper docs: *Rotation engine* section of
-`src/server/scripts/Custom/Bots/ROADMAP.md`.
+`src/server/scripts/Custom/Bots/ROADMAP.md` and
+`docs/superpowers/specs/2026-06-21-bot-lowlevel-rotations-design.md`.
 
 ## Custom secondary professions
 
