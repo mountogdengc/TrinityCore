@@ -7,6 +7,7 @@
 
 #include "BotMgr.h"
 #include "BotCombatPolicy.h"
+#include "BotRotation.h"
 #include "CharacterCache.h"
 #include "Chat.h"
 #include "Group.h"
@@ -37,6 +38,7 @@ namespace
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
     constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
+    constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
 
     std::string ToLower(std::string str)
     {
@@ -264,10 +266,19 @@ void BotMgr::UpdateFollow()
         // the same-map catch-up blink yank us off it (a *caster* master -- e.g. an
         // undead priest -- often backpedals while casting, which would otherwise
         // teleport the chasing bot back and drop combat). Cross-map still blinks.
+        //
+        // Validate the mob we're already meleeing with the MASTER's attack check,
+        // never the bot's own IsValidAttackTarget: a headless bot's gate misfires
+        // (asymmetric visibility), which is exactly what made the bot drop combat
+        // the instant the master retargeted a friendly to heal. See
+        // BotCombatPolicy::ShouldKeepCurrentVictim.
         Unit* const curVictim = bot->GetVictim();
-        bool const inActiveCombat = curVictim && curVictim->IsAlive()
-            && bot->IsValidAttackTarget(curVictim)
+        bool const victimAlive       = curVictim && curVictim->IsAlive();
+        bool const victimStillValid  = victimAlive && !bot->IsFriendlyTo(curVictim)
+            && master->IsValidAttackTarget(curVictim);
+        bool const victimWithinLeash = victimAlive
             && bot->GetExactDist(curVictim) <= BOT_COMBAT_LEASH_DIST;
+        bool const inActiveCombat    = victimStillValid && victimWithinLeash;
 
         // Cross-map, or fell too far behind on the same map (mount / taxi / a
         // master teleport): blink to the master's position. Pass the master's
@@ -287,17 +298,26 @@ void BotMgr::UpdateFollow()
             continue;
         }
 
-        // M3: pick who to fight. Prefer a fresh assist/defend target, but if there
-        // isn't one this tick, STAY COMMITTED to the mob we're already meleeing
-        // until it's dead or out of leash. This is critical for a *caster* master:
-        // a priest never sets GetVictim() and constantly re-selects (to self-heal /
-        // tab-target), so keying combat purely off the master's current selection
-        // makes the bot land one hit and then idle. (A melee master's GetVictim()
-        // is stable, which is why this looked fine at Sen'jin and broke for the
-        // undead priest.)
+        // M3/M4: pick who to fight. Prefer a fresh assist/defend target, but if
+        // there isn't one this tick, STAY COMMITTED to the mob we're already
+        // meleeing until it dies or leaves leash. Critical for a *caster/healer*
+        // master: their target constantly changes (self-heal, tab-target, clicking
+        // a party member to heal), so keying combat purely off the master's current
+        // selection makes the bot land one hit and idle. A short stale window rides
+        // out transient master-side validity blips (LoS / phase) before giving up.
         Unit* target = SelectAssistTarget(bot, master);
-        if (!target && inActiveCombat)
+        if (BotCombatPolicy::ShouldKeepCurrentVictim(target != nullptr, victimAlive,
+            victimStillValid, victimWithinLeash, entry.staleCombatTimer, BOT_STALE_COMBAT_MS))
             target = curVictim;
+
+        // Maintain the stale-combat timer the policy above reads: reset while the
+        // victim is solidly valid, otherwise accrue toward the give-up timeout.
+        if (inActiveCombat)
+            entry.staleCombatTimer = 0;
+        else if (curVictim)
+            entry.staleCombatTimer += BOT_FOLLOW_INTERVAL_MS;
+        else
+            entry.staleCombatTimer = 0;
 
         if (target)
         {
@@ -317,6 +337,13 @@ void BotMgr::UpdateFollow()
             }
             else if (mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
                 mm->MoveChase(target);
+
+            // M4: data-driven rotation -- cast the top castable Assisted Combat
+            // ability at the victim. The melee auto-attack set up above carries the
+            // rotation between casts and covers specs/levels with no castable
+            // ability (SelectSpell returns 0, so we just keep meleeing).
+            if (uint32 spellId = BotRotation::SelectSpell(bot, target))
+                bot->CastSpell(target, spellId);
             continue;
         }
 

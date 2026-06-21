@@ -49,6 +49,9 @@ TC_GAME_API extern DB2Storage<ArtifactPowerEntry>                   sArtifactPow
 TC_GAME_API extern DB2Storage<ArtifactPowerPickerEntry>             sArtifactPowerPickerStore;
 TC_GAME_API extern DB2Storage<ArtifactTierEntry>                    sArtifactTierStore;
 TC_GAME_API extern DB2Storage<ArtifactUnlockEntry>                  sArtifactUnlockStore;
+TC_GAME_API extern DB2Storage<AssistedCombatEntry>                  sAssistedCombatStore;
+TC_GAME_API extern DB2Storage<AssistedCombatRuleEntry>              sAssistedCombatRuleStore;
+TC_GAME_API extern DB2Storage<AssistedCombatStepEntry>              sAssistedCombatStepStore;
 TC_GAME_API extern DB2Storage<AuctionHouseEntry>                    sAuctionHouseStore;
 TC_GAME_API extern DB2Storage<AzeriteEssenceEntry>                  sAzeriteEssenceStore;
 TC_GAME_API extern DB2Storage<AzeriteKnowledgeMultiplierEntry>      sAzeriteKnowledgeMultiplierStore;

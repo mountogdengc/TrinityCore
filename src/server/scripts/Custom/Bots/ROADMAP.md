@@ -72,26 +72,31 @@ spells.
   `assisted_combat_rule`, `assisted_combat_step`) are Blizzard's per-spec ability
   priority lists, already loaded in-core. Retail resolves the Single-Button
   Assistant **client-side**, which a headless bot can't use — so M4 is a
-  **server-side resolver** that walks the rule/step lists for the bot's spec and
-  casts the top castable ability.
-- **Resolver loop:** per combat tick, evaluate the spec's rules in priority order
-  (range, resource, cooldown, target state) and cast the first eligible step's
-  spell at the current victim; fall back to melee when nothing is castable.
-- **Target retention fix (carried into M4):** when the master targets a *friendly*
-  (e.g. a healer clicking a party member to heal), `SelectAssistTarget` returns
-  null and the bot must hold its current victim — but the live "stay committed"
-  fallback (`BotMgr.cpp` `inActiveCombat`) still gates on the unreliable bot-side
-  `bot->IsValidAttackTarget(curVictim)`, so for any mob that trips the
-  asymmetric-visibility bug the bot drops combat the instant your target stops
-  being an eligible enemy. Fix: validate the kept victim with the *master*-side
-  validity already used across M3 (alive + not-friendly + within leash), and route
-  it through the existing-but-unused `BotCombatPolicy::ShouldKeepCurrentVictim`
-  helper (currently dead code). Small, self-contained, no rotation dependency.
-- **Open questions to design:** how to evaluate each rule's condition columns;
-  cooldown/GCD/resource gating; targeting for AoE vs single-target steps; a
-  fallback rotation for specs/levels with no Assisted Combat data; and how a
-  no-spec low-level bot behaves (likely melee until it has a spec). Owner-bound
-  cohort continuity beyond resurrection/summon remains follow-on work within M4.
+  **server-side resolver** that walks the spec's step list and casts the top
+  castable ability. (Stores reached via `extern` decls added to `DB2Stores.h`.)
+- **Resolver — DONE (castability-priority first pass):** `BotRotation::SelectSpell`
+  builds a per-spec priority list from `AssistedCombat` → `AssistedCombatStep`
+  (ordered by `OrderIndex`), cached on first use. Each combat tick it returns the
+  highest-priority ability the bot can actually cast — known (`HasSpell`), off
+  cooldown/GCD (`SpellHistory`), affordable (`CalcPowerCost` vs `GetPower`), in
+  range — and `BotMgr::UpdateFollow` casts it at the victim; melee carries the
+  rotation between casts and when nothing is castable. Sourced from **steps, not
+  rules**, which is also what the low-level Hunter hotfix spike ships.
+  - ⚠️ The rule `ConditionType` / `ConditionValueN` columns are **not evaluated
+    yet** — this is the next slice (decode the condition opcodes). Until then the
+    resolver is priority + castability only, so it may fire an ability whose retail
+    condition wouldn't be satisfied.
+- **Target retention fix — DONE:** the bot now holds its current victim when the
+  master retargets a *friendly* (e.g. a healer clicking a party member to heal).
+  `BotMgr::UpdateFollow` validates the held mob with the *master*'s
+  `IsValidAttackTarget` (alive + not-friendly + within leash) instead of the
+  unreliable bot-side gate, routed through `BotCombatPolicy::ShouldKeepCurrentVictim`
+  with a `BOT_STALE_COMBAT_MS` (2 s) grace window for transient LoS/phase blips.
+- **Open questions still to design:** how to evaluate each rule's condition columns
+  (the next slice); targeting for AoE vs single-target steps; cast-time abilities vs
+  the melee chase (movement interrupts casts); self-heal / ally-heal targeting;
+  a fallback rotation for specs with no Assisted Combat data. Owner-bound cohort
+  continuity beyond resurrection/summon remains follow-on work within M4.
 - **Spec prerequisite:** specs unlock at level 10. ⚠️ Don't `.character level` a
   spawned bot to reach that — the console boost crashes the worldserver on save;
   level by playing/escorting (see Open issues).
