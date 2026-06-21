@@ -89,15 +89,22 @@ Components 2 and 3 share one operation, factored into a single reusable helper o
 
 ```
 ReturnToCorpseAndResurrect(Player* p)
-  - if !p->HasCorpse() / GetCorpseLocation() invalid -> false (no-op)
-  - TeleportTo(p->GetCorpseLocation())
-  - p->ResurrectPlayer(1.0f)        // full HP, no resurrection sickness
-  - p->SpawnCorpseBones()
+  - if !p || p->IsAlive() -> false (no-op)
+  - if p->HasCorpse():                          // already released -> body is at the
+      TeleportTo(p->GetCorpseLocation())        // death spot, ghost is at graveyard
+      p->ResurrectPlayer(1.0f); p->SpawnCorpseBones()
+  - else:                                       // NOT released yet -> still lying at
+      p->ResurrectPlayer(1.0f); p->SpawnCorpseBones()  // the death spot: resurrect
+                                                // in place, no teleport => NO loading screen
   - return true
 ```
 
-Resurrection sickness is intentionally **not** applied — this mirrors normal
-corpse-reclaim (running to your body), not spirit-healer revival.
+A corpse object only exists **after** the player releases spirit. So a player who
+dies and waits (no release) has no corpse — we resurrect them **in place**, which
+also avoids the loading screen the release+teleport round-trip would cause. If they
+release first, we fall back to teleport-to-corpse. Resurrection sickness is
+intentionally **not** applied — this mirrors corpse-reclaim, not spirit-healer
+revival.
 
 ## Component 2 — Player auto-revive at corpse (primary, no chat)
 

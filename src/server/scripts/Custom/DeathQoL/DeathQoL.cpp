@@ -22,14 +22,26 @@ namespace Custom::DeathQoL
 {
 bool ReturnToCorpseAndResurrect(Player* player)
 {
-    if (!player || player->IsAlive() || !player->HasCorpse())
+    if (!player || player->IsAlive())
         return false;
 
-    WorldLocation const corpse = player->GetCorpseLocation();
-    player->ResurrectPlayer(1.0f);
-    player->SpawnCorpseBones();
-    player->TeleportTo(corpse.GetMapId(), corpse.GetPositionX(), corpse.GetPositionY(),
-        corpse.GetPositionZ(), corpse.GetOrientation());
+    if (player->HasCorpse())
+    {
+        // Already released: the body (corpse) is at the death spot and the ghost
+        // is elsewhere (graveyard), so teleport to the corpse, then resurrect.
+        WorldLocation const corpse = player->GetCorpseLocation();
+        player->ResurrectPlayer(1.0f);
+        player->SpawnCorpseBones();
+        player->TeleportTo(corpse.GetMapId(), corpse.GetPositionX(), corpse.GetPositionY(),
+            corpse.GetPositionZ(), corpse.GetOrientation());
+    }
+    else
+    {
+        // Not yet released: the player is still lying at the death spot, so just
+        // resurrect in place -- no teleport, hence no loading screen.
+        player->ResurrectPlayer(1.0f);
+        player->SpawnCorpseBones();
+    }
     return true;
 }
 }
