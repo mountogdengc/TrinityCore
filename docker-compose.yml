@@ -77,6 +77,13 @@ services:
       # SOAP remote console, used by the ./tc helper CLI (account/cmd).
       TC_SOAP_ENABLED: ${TC_SOAP_ENABLED:-1}
       TC_SOAP_PORT: ${TC_SOAP_PORT:-7878}
+      # Custom: Death QoL (docs/superpowers/specs/2026-06-20-death-qol-design.md).
+      # Enabled by default on this dev server; set to 0 to restore vanilla death.
+      TC_ALLOW_CHAT_WHILE_DEAD: ${TC_ALLOW_CHAT_WHILE_DEAD:-1}
+      TC_PLAYER_AUTO_REVIVE_AT_CORPSE: ${TC_PLAYER_AUTO_REVIVE_AT_CORPSE:-1}
+      TC_PLAYER_AUTO_REVIVE_DELAY_MS: ${TC_PLAYER_AUTO_REVIVE_DELAY_MS:-5000}
+      TC_BOT_AUTO_REVIVE: ${TC_BOT_AUTO_REVIVE:-1}
+      TC_BOT_AUTO_REVIVE_DELAY_MS: ${TC_BOT_AUTO_REVIVE_DELAY_MS:-5000}
     entrypoint: ["/usr/local/bin/worldserver-entrypoint.sh"]
     # worldserver exposes an interactive console; keep stdin open.
     stdin_open: true
