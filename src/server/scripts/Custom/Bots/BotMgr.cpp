@@ -365,7 +365,10 @@ void BotMgr::UpdateFollow()
             // ability at the victim. The melee auto-attack set up above carries the
             // rotation between casts and covers specs/levels with no castable
             // ability (SelectSpell returns 0, so we just keep meleeing).
-            if (uint32 spellId = BotRotation::SelectSpell(bot, target))
+            uint32 const spellId = BotRotation::SelectSpell(bot, target);
+            TC_LOG_DEBUG("bots", "Bot '{}' rotation: spec {}, spell {}.",
+                bot->GetName(), int32(bot->GetPrimarySpecialization()), spellId);
+            if (spellId)
                 bot->CastSpell(target, spellId);
             continue;
         }
