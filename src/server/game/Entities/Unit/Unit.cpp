@@ -1919,6 +1919,10 @@ void Unit::HandleEmoteCommand(Emote emoteId, Player* target /*=nullptr*/, Trinit
         if (!absorbAurEff->GetSpellInfo()->HasAttribute(SPELL_ATTR6_ABSORB_CANNOT_BE_IGNORE))
             damageInfo.ModifyDamage(-absorbIgnoringDamage);
 
+        // [ABSORB-DIAG] temporary instrumentation (see CHANGELOG-custom.md) — capture pre-absorb state to diagnose PW:Shield over-absorb; remove when done
+        int32 const diagIncomingDamage = int32(damageInfo.GetDamage());
+        int32 const diagShieldBefore = currentAbsorb;
+
         uint32 tempAbsorb = uint32(currentAbsorb);
 
         bool defaultPrevented = false;
@@ -1949,6 +1953,16 @@ void Unit::HandleEmoteCommand(Emote emoteId, Player* target /*=nullptr*/, Trinit
 
         if (!absorbAurEff->GetSpellInfo()->HasAttribute(SPELL_ATTR6_ABSORB_CANNOT_BE_IGNORE))
             damageInfo.ModifyDamage(absorbIgnoringDamage);
+
+        // [ABSORB-DIAG] temporary instrumentation (see CHANGELOG-custom.md) — dumps incoming-vs-absorbed for school-absorb shields (e.g. Power Word: Shield); remove when done.
+        // If reportedAbsorbed ever exceeds incomingDamage, the bug is in code RUNNING that lacks the clamp (stale binary). If they match and the shield still vanishes in one hit, the bug is here/in data.
+        TC_LOG_ERROR("spells", "[ABSORB-DIAG] absorbSpell={} victim={} attacker={} damageSpell={} incomingDamage={} shieldBefore={} reportedAbsorbed={} shieldAfter={} leakedDamage={}",
+            absorbAurEff->GetId(),
+            damageInfo.GetVictim()->GetGUID().ToString(),
+            damageInfo.GetAttacker() ? damageInfo.GetAttacker()->GetGUID().ToString() : std::string("none"),
+            damageInfo.GetSpellInfo() ? damageInfo.GetSpellInfo()->Id : 0,
+            diagIncomingDamage, diagShieldBefore, currentAbsorb,
+            absorbAurEff->GetAmountAsInt(), int32(damageInfo.GetDamage()));
 
         if (currentAbsorb)
         {
