@@ -1,39 +1,43 @@
-# Low-level Priest & Warrior Bot Rotations — Implementation Plan
+# Low-level Hunter, Priest & Warrior Bot Rotations — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give sub-10 (pre-spec) Priest and Warrior bots a real ability rotation by adding custom `AssistedCombat` Initial-spec data — no engine code change.
+**Goal:** Give sub-10 (pre-spec) Hunter, Priest, and Warrior bots a real ability rotation via an auto-applied hotfixes migration of custom `AssistedCombat` Initial-spec data — no engine code change.
 
-**Architecture:** The merged M4 `BotRotation::SelectSpell` already builds a per-spec priority list from the `AssistedCombat`/`AssistedCombatStep` DB2 stores and casts the top castable ability each combat tick. Sub-10 characters report their class's "Initial" `ChrSpecialization`, for which Blizzard ships no data, so we insert custom rows into the **hotfixes DB**; the worldserver's hotfix loader applies them to the in-memory `sAssistedCombatStore` at startup, where the headless bot reads them. A small, permanent debug log at the cast site doubles as the spec-ID verification tool.
+**Architecture:** The merged M4 `BotRotation::SelectSpell` already builds a per-spec ability priority list from the `AssistedCombat`/`AssistedCombatStep` DB2 stores and casts the top castable ability each combat tick. Sub-10 characters report their class's "Initial" `ChrSpecialization`, for which Blizzard ships no data, so we add custom rows as an **auto-applied hotfixes updater migration**. On `docker compose up -d` the worldserver updater applies the migration to the hotfixes DB, then `DB2Manager` loads the `Status=1` hotfix rows into the in-memory `sAssistedCombatStore`, where the headless bot reads them. A small permanent DEBUG log at the cast site is the spec-ID verification tool.
 
-**Tech Stack:** TrinityCore master (C++), MySQL hotfixes DB, DB2 hotfix system, Docker Compose.
+**Tech Stack:** TrinityCore master (C++), MySQL hotfixes DB, TC SQL updater (`Updates.EnableDatabases` includes hotfixes; `Updates.Redundancy=0`), DB2 hotfix system, Docker Compose.
 
-**Key assumption to validate first (Task 5):** TrinityCore's hotfix loader *adds* new `AssistedCombat`/`AssistedCombatStep` records (not just overrides existing ones) into the server-side in-memory stores. This is how custom DB2 content normally works in TC, but it is the load-bearing assumption — if the bot's priority list stays empty after the data is applied (debug log shows `spell 0` with a correct spec id), the data isn't reaching the store and we'd need to revisit (e.g. ship the rows in a `.db2` patch instead).
+**Key assumption to validate (Task 5):** TC's hotfix loader *adds* new `AssistedCombat`/`AssistedCombatStep` records into the server-side in-memory stores. This is how custom DB2 content normally works in TC, but it is load-bearing — if a bot's priority list stays empty after the data applies (DEBUG log shows `spell 0` with a *correct* spec id and a known spell), the rows aren't reaching the store and we'd revisit. The existing `assisted_combat` tables are currently empty, so this migration is the first data in them.
 
-**No automated test:** `SelectSpell` reads live `Player` + DB2 stores and the index builder is in an anonymous namespace, so there is no unit-test seam in the existing `tests/` harness. Verification is **manual in-game** with concrete observable outputs (Task 5). This is honest, not a shortcut — there is genuinely nothing meaningful to assert in isolation for a data-only change.
+**`Updates.Redundancy=0` discipline:** the updater applies each migration **once** and editing an already-applied file is unsafe on this fork. So this migration must be correct on first apply; any spec-ID correction is an **append-only** follow-up migration (`2026_06_21_01_hotfixes.sql`), never an edit to `..._00_...`.
 
-**Branch:** `claude/bot-lowlevel-rotations` (already created off `main`; the design spec is already committed here).
+**No automated test:** `SelectSpell` reads live `Player` + DB2 stores and the index builder is in an anonymous namespace, so there is no unit-test seam in the existing `tests/` harness. Verification is **manual in-game** with concrete observable outputs (Task 5). There is genuinely nothing meaningful to assert in isolation for a data-only change.
+
+**Branch:** `claude/bot-lowlevel-rotations` (already created off `main`; design spec already committed here).
 
 ---
 
 ## File Structure
 
-- **Create:** `sql/custom/bot_lowlevel_rotations.sql` — Priest + Warrior Initial-spec rotation data (idempotent, with rollback), modeled on `sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
-- **Modify:** `src/server/scripts/Custom/Bots/BotMgr.cpp` — one permanent `TC_LOG_DEBUG` line at the `BotRotation::SelectSpell` cast site (rotation diagnostics + spec-ID verification).
-- **Modify:** `CHANGELOG-custom.md` — record the low-level Priest/Warrior bot rotation data and how to apply it.
+- **Create:** `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql` — Hunter + Priest + Warrior Initial-spec rotation data + `hotfix_data` rows; auto-applied by the updater.
+- **Remove:** `sql/custom/spike_assisted_combat_hunter_lowlevel.sql` — superseded (its Hunter rows fold into the migration).
+- **Modify:** `src/server/scripts/Custom/Bots/BotMgr.cpp` — one permanent `TC_LOG_DEBUG` line at the `BotRotation::SelectSpell` cast site (diagnostics + spec-ID verification).
+- **Modify:** `CHANGELOG-custom.md` and `src/server/scripts/Custom/Bots/ROADMAP.md` — repoint the removed spike file to the migration; record the auto-applied Hunter/Priest/Warrior data.
 
 ---
 
-### Task 1: Author the rotation data SQL file
+### Task 1: Create the auto-applied rotation migration & remove the spike file
 
 **Files:**
-- Create: `sql/custom/bot_lowlevel_rotations.sql`
+- Create: `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql`
+- Remove: `sql/custom/spike_assisted_combat_hunter_lowlevel.sql`
 
-- [ ] **Step 1: Create the file with this exact content**
+- [ ] **Step 1: Create the migration with this exact content**
 
 ```sql
 -- =====================================================================
--- Low-level (sub-10, pre-spec) bot rotations: Priest & Warrior
+-- Low-level (sub-10, pre-spec) bot rotations: Hunter, Priest, Warrior
 -- =====================================================================
 --
 -- Server-side rotation data for the M4 player-bot rotation engine
@@ -42,115 +46,106 @@
 -- data; these custom rows give the engine an ability priority list so a
 -- headless bot casts spells instead of melee-only.
 --
--- This is BOT data (server-side). Unlike the Hunter file it is not about
--- client rendering; the worldserver's hotfix loader applies these Status=1
--- rows to the in-memory sAssistedCombatStore / sAssistedCombatStepStore at
--- startup, which is what the bot reads.
+-- Auto-applied by the worldserver updater (hotfixes DB). At startup the
+-- hotfix loader then applies the Status=1 rows to the in-memory
+-- sAssistedCombatStore / sAssistedCombatStepStore, which is what the bot
+-- reads. Supersedes the old manual
+-- sql/custom/spike_assisted_combat_hunter_lowlevel.sql (Hunter rows folded in).
 --
--- Apply to the HOTFIXES database, then restart the worldserver:
---   docker exec -i tc-db mysql -utrinity -ptrinity hotfixes < sql/custom/bot_lowlevel_rotations.sql
---   docker compose up -d
+-- Initial ChrSpecializationID per class (a wrong value = empty list = bot
+-- melees; verify via the BotMgr rotation DEBUG log, plan Task 5):
+--   Hunter  (class 3) -> 1448  (confirmed by the prior spike)
+--   Priest  (class 5) -> 1452  (verify build 67823)
+--   Warrior (class 1) -> 1446  (verify build 67823)
+-- Correction is APPEND-ONLY: never edit this applied file (Updates.Redundancy=0);
+-- add 2026_06_21_01_hotfixes.sql to UPDATE a wrong ChrSpecializationID.
 --
--- Requires the assisted_combat / assisted_combat_step tables (created by
--- sql/updates/hotfixes/master/2026_06_19_00_hotfixes.sql).
+-- Unconditional, always-castable damage spells only (the engine does not yet
+-- evaluate AssistedCombatRule conditions; HasSpell() gates unknown spells).
 --
--- !! VERIFY for this build (67823): the Initial ChrSpecializationID per
---    class. Hunter's 1448 is confirmed (spike). If a value below is wrong,
---    that class's priority list stays empty and the bot just melees --
---    confirm via the BotMgr rotation debug log (Task 5 of the plan).
---
--- Table hashes (db2 header table_hash, from the Hunter spike):
+-- Table hashes (db2 header table_hash):
 --   AssistedCombat      0xA4A21680 = 2762086016
 --   AssistedCombatStep  0x790BCC4F = 2030816335
 -- =====================================================================
 
-SET @PRIEST_INITIAL_SPEC  := 1452;   -- Priest  "Initial" ChrSpecializationID (VERIFY)
-SET @WARRIOR_INITIAL_SPEC := 1446;   -- Warrior "Initial" ChrSpecializationID (VERIFY)
+-- --- idempotent cleanup (safe re-run; the updater applies once) ----------
+DELETE FROM `assisted_combat`      WHERE `ID` IN (1000001, 1000010, 1000020);
+DELETE FROM `assisted_combat_step` WHERE `ID` IN (1000001, 1000002, 1000010, 1000011, 1000020);
+DELETE FROM `hotfix_data`          WHERE `Id` IN (9000001, 9000010, 9000020);
 
-SET @HASH_AC   := 2762086016;        -- 0xA4A21680
-SET @HASH_STEP := 2030816335;        -- 0x790BCC4F
-
--- Unconditional, always-castable low-level damage spells only (the engine
--- does not yet evaluate AssistedCombatRule condition columns, so proc-gated
--- abilities like Victory Rush would mis-fire). The engine also gates every
--- candidate on HasSpell(), so listing a not-yet-learned spell is harmless.
-SET @SPELL_SW_PAIN := 589;           -- Shadow Word: Pain (Priest DoT)
-SET @SPELL_SMITE   := 585;           -- Smite (Priest filler)
-SET @SPELL_SLAM    := 1464;          -- Slam (Warrior)
-
--- Row-id ranges: high + collision-safe, distinct from the Hunter spike
--- (1000001.., push 9000001..) and between classes.
-SET @AC_PRIEST   := 1000010;
-SET @AC_WARRIOR  := 1000020;
-
--- --- clean any prior run -------------------------------------------------
-DELETE FROM `assisted_combat`      WHERE `ID` IN (@AC_PRIEST, @AC_WARRIOR);
-DELETE FROM `assisted_combat_step` WHERE `ID` IN (1000010, 1000011, 1000020);
-DELETE FROM `hotfix_data`          WHERE `Id` IN (9000010, 9000020);
-
--- =========================== PRIEST =====================================
+-- =========================== HUNTER (1448) ==============================
 INSERT INTO `assisted_combat` (`ID`, `ChrSpecializationID`, `VerifiedBuild`) VALUES
-(@AC_PRIEST, @PRIEST_INITIAL_SPEC, 0);
-
+(1000001, 1448, 0);
 INSERT INTO `assisted_combat_step` (`ID`, `SpellID`, `AssistedCombatID`, `OrderIndex`, `VerifiedBuild`) VALUES
-(1000010, @SPELL_SW_PAIN, @AC_PRIEST, 0, 0),   -- DoT first
-(1000011, @SPELL_SMITE,   @AC_PRIEST, 1, 0);   -- filler
-
+(1000001, 185358, 1000001, 0, 0),   -- Arcane Shot
+(1000002,  56641, 1000001, 1, 0);   -- Steady Shot
 INSERT INTO `hotfix_data` (`Id`, `UniqueId`, `TableHash`, `RecordId`, `Status`, `VerifiedBuild`) VALUES
-(9000010, 2000000010, @HASH_AC,   @AC_PRIEST, 1, 0),
-(9000010, 2000000011, @HASH_STEP, 1000010,    1, 0),
-(9000010, 2000000012, @HASH_STEP, 1000011,    1, 0);
+(9000001, 2000000001, 2762086016, 1000001, 1, 0),
+(9000001, 2000000002, 2030816335, 1000001, 1, 0),
+(9000001, 2000000003, 2030816335, 1000002, 1, 0);
 
--- =========================== WARRIOR ====================================
+-- =========================== PRIEST (1452) ==============================
 INSERT INTO `assisted_combat` (`ID`, `ChrSpecializationID`, `VerifiedBuild`) VALUES
-(@AC_WARRIOR, @WARRIOR_INITIAL_SPEC, 0);
-
+(1000010, 1452, 0);
 INSERT INTO `assisted_combat_step` (`ID`, `SpellID`, `AssistedCombatID`, `OrderIndex`, `VerifiedBuild`) VALUES
-(1000020, @SPELL_SLAM, @AC_WARRIOR, 0, 0);
-
+(1000010, 589, 1000010, 0, 0),   -- Shadow Word: Pain (DoT first)
+(1000011, 585, 1000010, 1, 0);   -- Smite (filler)
 INSERT INTO `hotfix_data` (`Id`, `UniqueId`, `TableHash`, `RecordId`, `Status`, `VerifiedBuild`) VALUES
-(9000020, 2000000020, @HASH_AC,   @AC_WARRIOR, 1, 0),
-(9000020, 2000000021, @HASH_STEP, 1000020,     1, 0);
+(9000010, 2000000010, 2762086016, 1000010, 1, 0),
+(9000010, 2000000011, 2030816335, 1000010, 1, 0),
+(9000010, 2000000012, 2030816335, 1000011, 1, 0);
 
--- =====================================================================
--- ROLLBACK (run these to remove this data):
---   DELETE FROM `assisted_combat`      WHERE `ID` IN (1000010, 1000020);
---   DELETE FROM `assisted_combat_step` WHERE `ID` IN (1000010, 1000011, 1000020);
---   DELETE FROM `hotfix_data`          WHERE `Id` IN (9000010, 9000020);
--- =====================================================================
+-- =========================== WARRIOR (1446) =============================
+INSERT INTO `assisted_combat` (`ID`, `ChrSpecializationID`, `VerifiedBuild`) VALUES
+(1000020, 1446, 0);
+INSERT INTO `assisted_combat_step` (`ID`, `SpellID`, `AssistedCombatID`, `OrderIndex`, `VerifiedBuild`) VALUES
+(1000020, 1464, 1000020, 0, 0);   -- Slam
+INSERT INTO `hotfix_data` (`Id`, `UniqueId`, `TableHash`, `RecordId`, `Status`, `VerifiedBuild`) VALUES
+(9000020, 2000000020, 2762086016, 1000020, 1, 0),
+(9000020, 2000000021, 2030816335, 1000020, 1, 0);
 ```
 
-- [ ] **Step 2: Apply the file for real and confirm it parses + inserts (it is idempotent; Task 5 re-applies it)**
+- [ ] **Step 2: Remove the superseded spike file**
+
+```bash
+git rm sql/custom/spike_assisted_combat_hunter_lowlevel.sql
+```
+Expected: the file is staged for deletion.
+
+- [ ] **Step 3: Confirm the migration applies cleanly against the live hotfixes DB (it is idempotent; the updater re-applies on restart anyway)**
 
 Run (Bash tool):
 ```bash
-docker exec -i tc-db mysql -utrinity -ptrinity hotfixes < sql/custom/bot_lowlevel_rotations.sql 2>&1 | grep -vi warning
+docker exec -i tc-db mysql -utrinity -ptrinity hotfixes < sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql 2>&1 | grep -vi warning
 ```
 Expected: no `ERROR` output. Then confirm the rows landed:
 ```bash
 docker exec tc-db mysql -utrinity -ptrinity -N -e \
-  "SELECT ID,ChrSpecializationID FROM hotfixes.assisted_combat WHERE ID IN (1000010,1000020); \
-   SELECT ID,SpellID,OrderIndex FROM hotfixes.assisted_combat_step WHERE ID IN (1000010,1000011,1000020) ORDER BY ID;" 2>&1 | grep -vi warning
+  "SELECT ID,ChrSpecializationID FROM hotfixes.assisted_combat WHERE ID IN (1000001,1000010,1000020) ORDER BY ID; \
+   SELECT ID,SpellID,AssistedCombatID,OrderIndex FROM hotfixes.assisted_combat_step WHERE AssistedCombatID IN (1000001,1000010,1000020) ORDER BY AssistedCombatID,OrderIndex;" 2>&1 | grep -vi warning
 ```
-Expected: AC rows `1000010 1452` and `1000020 1446`; step rows `1000010 589 0`, `1000011 585 1`, `1000020 1464 0`.
+Expected: AC rows `1000001 1448`, `1000010 1452`, `1000020 1446`; step rows for Hunter (185358 then 56641), Priest (589 then 585), Warrior (1464).
 
-(The running worldserver won't pick these up until the Task 5 restart — hotfixes load at startup. That's fine.)
+(This manual apply just proves the SQL is valid. The running worldserver won't *use* it until the Task 5 restart, where the updater applies it for real and the store loads it.)
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add sql/custom/bot_lowlevel_rotations.sql
-git commit -m "feat(bots): low-level Priest & Warrior rotation data (AssistedCombat Initial spec)"
+git add sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql
+git commit -m "feat(bots): auto-applied hotfixes migration for low-level Hunter/Priest/Warrior rotations
+
+Folds the manual Hunter spike into an updater migration and adds Priest
+(SW:Pain -> Smite) and Warrior (Slam) Initial-spec rotation data."
 ```
 
 ---
 
-### Task 2: Add the rotation cast debug log (diagnostics + spec-ID verification)
+### Task 2: Add the rotation cast DEBUG log (diagnostics + spec-ID verification)
 
 **Files:**
-- Modify: `src/server/scripts/Custom/Bots/BotMgr.cpp` (the `BotRotation::SelectSpell` cast site, ~line 368, inside the `if (target)` block)
+- Modify: `src/server/scripts/Custom/Bots/BotMgr.cpp` (the `BotRotation::SelectSpell` cast site, inside the `if (target)` block, currently ~lines 364-369)
 
-This logs the bot's primary spec and the selected spell every combat tick a target is engaged. At `DEBUG` level it is off in production; enabling `Logger.bots=4` (Debug) during Task 5 prints the actual Initial spec id (confirming/correcting the SQL `@*_INITIAL_SPEC` values) and proves the rotation fires.
+This logs the bot's primary spec and the selected spell each combat tick a target is engaged. At `DEBUG` level it is off in production; enabling `bots` logging during Task 5 prints the actual Initial spec id (confirming/correcting the migration's `ChrSpecializationID`s) and proves the rotation fires.
 
 - [ ] **Step 1: Replace the existing cast block**
 
@@ -179,12 +174,12 @@ Replace it with:
             continue;
 ```
 
-- [ ] **Step 2: Confirm it compiles in isolation (no full build yet)**
+- [ ] **Step 2: Verify by eye (compiles as part of Task 4, not standalone)**
 
-This is part of the Task 4 build; no standalone compile here. Just verify by eye that:
-- `TC_LOG_DEBUG` uses `{}` placeholders (correct for `TC_LOG_*`, unlike `PSendSysMessage` which is printf-style).
-- `int32(bot->GetPrimarySpecialization())` mirrors the existing cast in `BotRotation.cpp:85`.
-- `<cstdint>`/`int32` and `Log.h` are already included in `BotMgr.cpp` (they are — the file already uses `TC_LOG_DEBUG` and `uint32`).
+Confirm:
+- `TC_LOG_DEBUG` uses `{}` placeholders (correct for `TC_LOG_*`, unlike printf-style `PSendSysMessage`).
+- `int32(bot->GetPrimarySpecialization())` mirrors `BotRotation.cpp:85`.
+- `Log.h`, `int32`, and `Player.h` are already included in `BotMgr.cpp` (they are — the file already uses `TC_LOG_DEBUG`, `uint32`, and `Player`).
 
 - [ ] **Step 3: Commit**
 
@@ -195,38 +190,89 @@ git commit -m "feat(bots): log rotation spec + selected spell (DEBUG) for verifi
 
 ---
 
-### Task 3: Update CHANGELOG-custom.md
+### Task 3: Repoint the docs off the removed spike file
 
 **Files:**
-- Modify: `CHANGELOG-custom.md` (the "Assisted-combat rotation — rotation engine (separate track)" section)
+- Modify: `CHANGELOG-custom.md`
+- Modify: `src/server/scripts/Custom/Bots/ROADMAP.md`
 
-- [ ] **Step 1: Append a paragraph to that section's prose** (after the existing "Key files / Deeper docs" lines, before the next `##` heading)
+- [ ] **Step 1: CHANGELOG — repoint the "Low-level data" line to the migration**
 
+In `CHANGELOG-custom.md`, in the "Assisted-combat rotation — rotation engine (separate track)" section, replace:
 ```markdown
-
-**Low-level data (Priest & Warrior):** `sql/custom/bot_lowlevel_rotations.sql`
-adds custom `AssistedCombat` Initial-spec rows so sub-10 (pre-spec) Priest and
-Warrior bots get a rotation (Priest: Shadow Word: Pain → Smite; Warrior: Slam).
-Apply to the **hotfixes** DB and restart the worldserver
-(`docker exec -i tc-db mysql -utrinity -ptrinity hotfixes < sql/custom/bot_lowlevel_rotations.sql`).
-Unconditional damage only until the rule-condition slice lands. Design:
+Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
+combat loop in `BotMgr::UpdateFollow`. Low-level data:
+`sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
+Deeper docs: *Rotation engine* section of
+`src/server/scripts/Custom/Bots/ROADMAP.md`.
+```
+with:
+```markdown
+Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
+combat loop in `BotMgr::UpdateFollow`. Low-level data (Hunter / Priest / Warrior
+Initial specs), auto-applied by the updater:
+`sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql`.
+Deeper docs: *Rotation engine* section of
+`src/server/scripts/Custom/Bots/ROADMAP.md` and
 `docs/superpowers/specs/2026-06-21-bot-lowlevel-rotations-design.md`.
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: CHANGELOG — soften the now-fileless "spike" mention**
+
+In the same section, replace:
+```markdown
+condition opcodes is a follow-on slice. The low-level Hunter
+hotfix spike (steps-only, no rules) is consumed by the same path.
+```
+with:
+```markdown
+condition opcodes is a follow-on slice. The low-level Hunter/Priest/Warrior
+hotfix data (steps-only, no rules) is consumed by the same path.
+```
+
+- [ ] **Step 3: ROADMAP — rewrite the "Prior art (exploratory spike)" bullet**
+
+In `src/server/scripts/Custom/Bots/ROADMAP.md`, replace this bullet:
+```markdown
+- **Prior art (exploratory spike):**
+  `sql/custom/spike_assisted_combat_hunter_lowlevel.sql` is a **client-side**
+  hotfix experiment — it pushes custom `assisted_combat` rows for the Hunter
+  "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the 12.0
+  client renders a rotation before level 10. The steps-only data it ships is
+  consumed by the same resolver path.
+```
+with:
+```markdown
+- **Low-level data (Hunter / Priest / Warrior):**
+  `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql` ships custom
+  `assisted_combat` Initial-spec steps for sub-10 Hunter, Priest, and Warrior bots
+  (auto-applied by the updater; loaded server-side into `sAssistedCombatStore`,
+  not the client). Unconditional damage only until the rule-condition slice lands.
+  Supersedes the earlier manual Hunter spike file.
+```
+
+- [ ] **Step 4: Confirm no dangling reference to the removed file remains**
+
+Run (Bash tool):
+```bash
+grep -rn "spike_assisted_combat_hunter_lowlevel" --include=*.md --include=*.sql . | grep -v docs/superpowers/specs/2026-06-21
+```
+Expected: no output (the only remaining mentions are historical, inside this feature's own spec/plan).
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add CHANGELOG-custom.md
-git commit -m "docs: changelog entry for low-level Priest/Warrior bot rotation data"
+git add CHANGELOG-custom.md src/server/scripts/Custom/Bots/ROADMAP.md
+git commit -m "docs: repoint rotation docs to the auto-applied migration; drop spike file refs"
 ```
 
 ---
 
-### Task 4: Build the worldserver (carries the rotation engine + debug log)
+### Task 4: Build the worldserver (carries the rotation engine + DEBUG log)
 
 **Files:** none (build only)
 
-The currently-running image predates the M4 rotation engine, so a build from this branch is required regardless of this feature.
+The currently-running image predates the M4 rotation engine, so a build from this branch is required regardless.
 
 - [ ] **Step 1: Build (full ~30-min recompile; never pipe to tail/head)**
 
@@ -245,75 +291,75 @@ Expected: a **new** image ID with a fresh timestamp, and no `error:` lines. (A f
 
 ---
 
-### Task 5: Apply data, restart, and verify in-game (the real test)
+### Task 5: Restart (migration auto-applies) and verify in-game (the real test)
 
 **Files:** none (runtime verification)
 
-- [ ] **Step 1: Apply the rotation data to the hotfixes DB (idempotent)**
-
-```bash
-docker exec -i tc-db mysql -utrinity -ptrinity hotfixes < sql/custom/bot_lowlevel_rotations.sql 2>&1 | grep -vi warning
-docker exec tc-db mysql -utrinity -ptrinity -N -e \
-  "SELECT t.AssistedCombatID, t.SpellID, t.OrderIndex FROM hotfixes.assisted_combat_step t WHERE t.ID IN (1000010,1000011,1000020) ORDER BY t.AssistedCombatID,t.OrderIndex;" 2>&1 | grep -vi warning
-```
-Expected: three step rows (Priest container → 589 then 585; Warrior container → 1464).
-
-- [ ] **Step 2: Recreate the containers onto the new image (loads the binary AND the hotfix rows)**
+- [ ] **Step 1: Recreate the containers onto the new image — the updater applies the migration, then the store loads it**
 
 ```bash
 docker compose up -d
 ```
-Expected: `tc-worldserver` and `tc-bnetserver` recreated; `docker ps` shows them on the new image id from Task 4.
+Expected: `tc-worldserver` + `tc-bnetserver` recreated on the new image id from Task 4.
 
-- [ ] **Step 3: Enable bot debug logging so the rotation log prints**
+- [ ] **Step 2: Confirm the migration applied cleanly (no updater error, row recorded)**
 
-The worldserver console (attach with `docker attach tc-worldserver`, detach Ctrl-P Ctrl-Q), or via SOAP:
+```bash
+docker logs tc-worldserver 2>&1 | grep -iE "2026_06_21_00_hotfixes|Applied .* file|updates|error" | tail -20
+docker exec tc-db mysql -utrinity -ptrinity -N -e \
+  "SELECT name, state FROM hotfixes.updates WHERE name LIKE '2026_06_21_00%';" 2>&1 | grep -vi warning
+```
+Expected: the worldserver log shows the migration applied with no updater error; the `updates` row shows the migration name with state `RELEASED`. If the worldserver is crash-looping on an updater error, read the error, fix the migration, and (since it was never recorded as applied) restart.
+
+- [ ] **Step 3: Enable bot DEBUG logging so the rotation log prints**
+
+Attach the console (`docker attach tc-worldserver`; detach Ctrl-P Ctrl-Q) and run, or via SOAP:
 ```bash
 curl -s -u "1#1:Password1" -H 'Content-Type: application/xml' \
   -d '<?xml version="1.0"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:TC"><SOAP-ENV:Body><ns1:executeCommand><command>account set log Logger.bots Debug</command></ns1:executeCommand></SOAP-ENV:Body></SOAP-ENV:Envelope>' \
   http://127.0.0.1:7878/
 ```
-If that logger command isn't available, set `Logger.bots=4,Console Server` in `worldserver.conf` via the entrypoint env and restart, or just read the worldserver stdout where `TC_LOG_DEBUG("bots", ...)` already routes. The goal is only to see the `Bot '<name>' rotation: spec N, spell M.` lines.
+If that command isn't available, set `Logger.bots=4,Console Server` in the worldserver config via the entrypoint env and restart, or just read `docker logs -f tc-worldserver` where `TC_LOG_DEBUG("bots", ...)` routes. The goal is only to see `Bot '<name>' rotation: spec N, spell M.` lines.
 
-- [ ] **Step 4: Spawn the existing sub-10 bots, group/follow, and engage a mob**
+- [ ] **Step 4: Spawn the existing sub-10 bots, follow, and engage a mob**
 
-In-world as the GM master (`david@local`), near a low-level mob:
+In-world as the GM master (`david@local`), near a low-level mob. Available sub-10 test characters: `Alvaro` (Priest L7), `Lithilia` (Warrior L7), plus a sub-10 Hunter if one exists (else create/use any). For each:
 ```
-.bot add Alvaro       (Priest, L7)
-.bot add Lithilia     (Warrior, L7)
+.bot add Alvaro
+.bot add Lithilia
 .bot follow Alvaro
 .bot follow Lithilia
 ```
 Pull a mob so the bots assist.
 
-- [ ] **Step 5: Read the rotation log and confirm the spec IDs + casts**
+- [ ] **Step 5: Read the rotation log and confirm spec IDs + casts**
 
-Watch the worldserver log for lines like:
+Watch for lines like:
 ```
 Bot 'Alvaro' rotation: spec 1452, spell 589.
 Bot 'Lithilia' rotation: spec 1446, spell 1464.
 ```
 Interpret:
-- **`spec` matches the SQL `@*_INITIAL_SPEC`** (Priest 1452 / Warrior 1446) → the IDs are correct. If `spec` shows a *different* number, that is the real Initial spec id for this build: update the matching `SET @*_INITIAL_SPEC` in `sql/custom/bot_lowlevel_rotations.sql`, re-run Step 1 (no rebuild needed), and re-test.
-- **`spell` is non-zero** (589/585 for the priest, 1464 for the warrior) → the rotation fired. Cross-check by watching the target: a Shadow Word: Pain debuff + Smite hits on the priest's target; Slam hits from the warrior.
-- **`spell 0` with a correct `spec`** → either the bot hasn't learned that spell (try `Alvaro` L7 rather than `Followerone` L1; the `HasSpell` gate is expected), or — if no class casts anything despite correct specs and known spells — the load-bearing assumption failed (hotfix rows didn't populate the server store); stop and report (see plan header).
+- **`spec` matches the migration value** (Hunter 1448 / Priest 1452 / Warrior 1446) → ids correct.
+- **`spell` non-zero** → rotation fired; cross-check on the target (Priest: SW:Pain debuff + Smite hits; Warrior: Slam hits; Hunter: Arcane/Steady Shot).
+- **`spec` differs from the migration** → that is the real Initial spec id for this build. Go to Step 6 (append-only correction).
+- **`spell 0` with a correct `spec` and a spell the bot knows** → if *no* class casts despite correct specs + known spells, the load-bearing store-load assumption failed; stop and report (see plan header).
+- **`spell 0` because the bot hasn't learned the listed spell** → expected for very low levels (the `HasSpell` gate); confirm with a slightly higher sub-10 bot.
 
-- [ ] **Step 6: Record the verified spec IDs**
+- [ ] **Step 6: (Only if a spec id was wrong) add an append-only correction migration**
 
-If Step 5 showed different spec IDs than 1452/1446, ensure the SQL file now has the corrected values committed:
-```bash
-git add sql/custom/bot_lowlevel_rotations.sql
-git commit -m "fix(bots): correct Priest/Warrior Initial spec ids per build 67823"
+Do **not** edit `2026_06_21_00_hotfixes.sql` (already applied; `Updates.Redundancy=0`). Create `sql/updates/hotfixes/master/2026_06_21_01_hotfixes.sql` with the corrected id, e.g. for a wrong Warrior id `<REAL_ID>`:
+```sql
+-- Correct the Warrior Initial ChrSpecializationID for build 67823 (verified
+-- via the BotMgr rotation DEBUG log: the bot reported spec <REAL_ID>, not 1446).
+UPDATE `assisted_combat` SET `ChrSpecializationID` = <REAL_ID> WHERE `ID` = 1000020;
 ```
-(If 1452/1446 were already correct, skip — nothing changed.)
-
-- [ ] **Step 7: Update the SQL file's VERIFY comment to a confirmed note**
-
-Once verified, change the two `(VERIFY)` comments in `sql/custom/bot_lowlevel_rotations.sql` to `(confirmed build 67823)` and commit:
+Then `docker compose up -d` to apply, re-verify Step 5, and commit:
 ```bash
-git add sql/custom/bot_lowlevel_rotations.sql
-git commit -m "docs(bots): mark Priest/Warrior Initial spec ids confirmed for build 67823"
+git add sql/updates/hotfixes/master/2026_06_21_01_hotfixes.sql
+git commit -m "fix(bots): correct <class> Initial spec id for build 67823 (append-only)"
 ```
+(If 1448/1452/1446 were all correct, skip this step entirely.)
 
 ---
 
@@ -331,8 +377,8 @@ git push -u origin claude/bot-lowlevel-rotations
 
 ```bash
 gh pr create --repo mountogdengc/TrinityCore --base main --head claude/bot-lowlevel-rotations \
-  --title "Low-level Priest & Warrior bot rotations (AssistedCombat data)" \
-  --body "Adds sql/custom/bot_lowlevel_rotations.sql (Priest: SW:Pain → Smite; Warrior: Slam) so sub-10 pre-spec bots use the M4 rotation engine. Data-only + a DEBUG cast log. Verified in-game on build 67823. See docs/superpowers/specs/2026-06-21-bot-lowlevel-rotations-design.md.
+  --title "Low-level Hunter/Priest/Warrior bot rotations (auto-applied AssistedCombat migration)" \
+  --body "Adds sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql (Hunter: Arcane/Steady Shot; Priest: SW:Pain -> Smite; Warrior: Slam) so sub-10 pre-spec bots use the M4 rotation engine. Auto-applied by the updater; folds in + removes the manual Hunter spike file. Adds a DEBUG cast log. Verified in-game on build 67823. See docs/superpowers/specs/2026-06-21-bot-lowlevel-rotations-design.md.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 ```
@@ -343,5 +389,3 @@ gh pr create --repo mountogdengc/TrinityCore --base main --head claude/bot-lowle
 gh pr view --repo mountogdengc/TrinityCore --json mergeable,mergeStateStatus -q '.mergeable + " / " + .mergeStateStatus'
 ```
 Expected: `MERGEABLE / CLEAN`.
-```
-```
