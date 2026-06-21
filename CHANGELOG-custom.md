@@ -30,7 +30,7 @@ something that already exists.
 
 ## Player-bots — headless companions
 
-Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (deferred)**
+Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (separate track, first pass landed)**
 
 A real `Player` driven by a `WorldSession` with a null socket, owned by `BotMgr`
 and pumped each world tick by `bot_worldscript`.
@@ -39,11 +39,15 @@ and pumped each world tick by `bot_worldscript`.
 - **M2** — follow + zone with the master across maps and into instances (the
   socketless cross-map teleport state machine; dungeon level-gate handling).
 - **M3** — group with the master + melee assist combat (assist master's victim,
-  defend self, retarget, post-combat hold). Melee is the combat baseline until
-  the rotation engine lands.
+  defend self, retarget, post-combat hold). Melee remains the fallback whenever no
+  ability is castable.
 - **M4** — companion cohort foundation: persistence, owner binding, auto-spawn,
   level-band + catch-up XP evaluation (started; see below). The data-driven
-  rotation engine is now a **separate, deferred track**, not part of M4.
+  rotation engine is tracked as a **separate track** (first-pass resolver landed);
+  that slice also wired the previously-dead `BotCombatPolicy::ShouldKeepCurrentVictim`
+  into the combat loop so the bot **holds its current victim when the master
+  retargets a friendly to heal** (validated via the master's `IsValidAttackTarget`,
+  not the bot's unreliable own gate).
 
 GM commands: `.bot add/remove/follow/stay/count` (`add`/`remove`/`stay`/`count`
 work from console/SOAP; `follow` needs an in-world player).
@@ -68,21 +72,26 @@ Key files: `src/server/scripts/Custom/Bots/BotCohortMgr.{h,cpp}`,
 Deeper docs: `docs/superpowers/specs/2026-06-20-companion-cohorts-design.md`,
 `docs/superpowers/plans/2026-06-20-companion-cohorts.md`.
 
-## Assisted-combat rotation — spike (deferred rotation track)
+## Assisted-combat rotation — rotation engine (separate track)
 
-Status: **spike (Hunter low-level only) — not part of the M4 cohort milestone**
+Status: **castability-priority resolver (any spec with Assisted Combat data) —
+tracked separately from the M4 cohort foundation**
 
-Exploratory work toward the eventual **rotation engine** (a deferred, separate
-track from the M4 cohort foundation). The end goal is a *server-side* resolver
-that walks Blizzard's Assisted Combat DB2 priority lists
-(`assisted_combat` / `_rule` / `_step`) for the bot's spec and casts the top
-castable ability — the headless replacement for the client-side Single-Button
-Assistant. **That resolver is not built yet.** The current artifact is instead a
-**client-side** hotfix experiment: it pushes custom `assisted_combat` rows for the
-Hunter "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the
-12.0 client renders a rotation before level 10. It does not drive a bot.
+`BotRotation::SelectSpell` is the server-side, headless replacement for the
+client-side Single-Button Assistant. It builds a per-spec ability priority list
+from Blizzard's Assisted Combat DB2 data (`AssistedCombat` → `AssistedCombatStep`,
+ordered by `OrderIndex`) and, each combat tick, returns the highest-priority
+ability the bot can actually cast — known (`HasSpell`), off cooldown/GCD
+(`SpellHistory`), affordable (`CalcPowerCost` vs `GetPower`), and in range. The bot
+casts it; melee auto-attack carries the rotation between casts and covers
+specs/levels with no castable ability (`SelectSpell` returns 0). The rules'
+`ConditionType` / `ConditionValueN` columns are intentionally **not** evaluated yet
+— decoding Blizzard's condition opcodes is a follow-on slice. The low-level Hunter
+hotfix spike (steps-only, no rules) is consumed by the same path.
 
-Key files: `sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
+Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
+combat loop in `BotMgr::UpdateFollow`. Low-level data:
+`sql/custom/spike_assisted_combat_hunter_lowlevel.sql`.
 Deeper docs: *Rotation engine* section of
 `src/server/scripts/Custom/Bots/ROADMAP.md`.
 
@@ -148,6 +157,11 @@ doesn't silently revert them):
   `collection-grants-crash-login` memory.
 - **`src/server/scripts/EasternKingdoms/zone_tirisfal_glades.cpp`** — hooks the
   Tirisfal recruitment script (above).
+- **`src/server/game/DataStores/DB2Stores.h`** — adds `extern` declarations for the
+  three Assisted Combat DB2 stores (`sAssistedCombatStore`,
+  `sAssistedCombatRuleStore`, `sAssistedCombatStepStore`). Upstream defines them in
+  `DB2Stores.cpp` but exposes them to no other translation unit; the declarations let
+  the M4 bot rotation engine (`BotRotation`) read them.
 
 ---
 

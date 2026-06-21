@@ -5,7 +5,7 @@ socket**, owned by `BotMgr` and pumped each world tick by `bot_worldscript`. See
 `README.md` for the M1 internals and `CLAUDE.md` (repo root) for the build/run and
 the cross-cutting gotchas.
 
-Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (deferred, separate track)**
+Status: **M1 ✅ · M2 ✅ · M3 ✅ · M4 cohort foundation (started) · M5–M8 (planned) · rotation engine (separate track, first pass landed)**
 
 GM commands: `.bot add/remove/follow/stay/count`. `add`/`remove`/`stay`/`count`
 run from the console/SOAP; `follow` needs an in-world player.
@@ -112,31 +112,51 @@ stay reasonably usable without per-step manual intervention.
 
 ---
 
-## Rotation engine — real ability usage (deferred, separate track)
+## Rotation engine — real ability usage (separate track, first pass landed)
 
-**Not part of the M4 cohort milestone.** Parked as its own track that layers on
-top of the M3 baseline (target selection, chase/movement, stale-combat handling,
-melee fallback) once the cohort foundation is stable. Sequencing relative to
-M5–M8 is open. Until it lands, melee auto-attack remains the combat baseline.
+**Tracked separately from the M4 cohort milestone.** It layers on top of the M3
+baseline (target selection, chase/movement, stale-combat handling, melee
+fallback); sequencing relative to M5–M8 is open. Melee auto-attack remains the
+fallback whenever no ability is castable.
 
-- **Intended data source:** the Assisted Combat DB2 tables (`assisted_combat`,
-  `assisted_combat_rule`, `assisted_combat_step`) — Blizzard's per-spec ability
+- **Intended data source:** the Assisted Combat DB2 tables (`AssistedCombat`,
+  `AssistedCombatRule`, `AssistedCombatStep`) — Blizzard's per-spec ability
   priority lists, already loaded in-core. Retail resolves the Single-Button
-  Assistant **client-side**, which a headless bot can't use — so the plan is a
-  **server-side resolver** that, per combat tick, walks the rule/step lists for
-  the bot's spec, casts the top castable ability at the current victim, and falls
-  back to melee when nothing is castable.
-- **Prior art (exploratory spike, not the plan):**
+  Assistant **client-side**, which a headless bot can't use — so this is a
+  **server-side resolver** that walks the spec's step list and casts the top
+  castable ability. (Stores reached via `extern` decls added to `DB2Stores.h`.)
+- **Resolver — DONE (castability-priority first pass):** `BotRotation::SelectSpell`
+  builds a per-spec priority list from `AssistedCombat` → `AssistedCombatStep`
+  (ordered by `OrderIndex`), cached on first use. Each combat tick it returns the
+  highest-priority ability the bot can actually cast — known (`HasSpell`), off
+  cooldown/GCD (`SpellHistory`), affordable (`CalcPowerCost` vs `GetPower`), in
+  range — and `BotMgr::UpdateFollow` casts it at the victim; melee carries the
+  rotation between casts and when nothing is castable. Sourced from **steps, not
+  rules**, which is also what the low-level Hunter hotfix spike ships.
+  - ⚠️ The rule `ConditionType` / `ConditionValueN` columns are **not evaluated
+    yet** — this is the next slice (decode the condition opcodes). Until then the
+    resolver is priority + castability only, so it may fire an ability whose retail
+    condition wouldn't be satisfied.
+- **Target retention fix — DONE:** the bot now holds its current victim when the
+  master retargets a *friendly* (e.g. a healer clicking a party member to heal).
+  `BotMgr::UpdateFollow` validates the held mob with the *master*'s
+  `IsValidAttackTarget` (alive + not-friendly + within leash) instead of the
+  unreliable bot-side gate, routed through `BotCombatPolicy::ShouldKeepCurrentVictim`
+  with a `BOT_STALE_COMBAT_MS` (2 s) grace window for transient LoS/phase blips.
+- **Prior art (exploratory spike):**
   `sql/custom/spike_assisted_combat_hunter_lowlevel.sql` is a **client-side**
   hotfix experiment — it pushes custom `assisted_combat` rows for the Hunter
   "Initial" (sub-10, pre-spec) spec to a *real client* to test whether the 12.0
-  client renders a rotation before level 10. It does **not** drive a bot (no
-  server-side resolver, no client) and is tracked in `CHANGELOG-custom.md` as a
-  spike, separate from these milestones.
-- **Open questions to design:** how to evaluate each rule's condition columns;
-  cooldown/GCD/resource gating; AoE vs single-target step targeting; a fallback
-  rotation for specs/levels with no Assisted Combat data; and how a no-spec
-  low-level bot behaves (likely melee until it has a spec).
+  client renders a rotation before level 10. The steps-only data it ships is
+  consumed by the same resolver path.
+- **Open questions still to design:** how to evaluate each rule's condition columns
+  (the next slice); cooldown/GCD/resource gating refinements; AoE vs single-target
+  step targeting; cast-time abilities vs the melee chase (movement interrupts
+  casts); self-heal / ally-heal targeting; and a fallback rotation for specs/levels
+  with no Assisted Combat data.
+- **Spec prerequisite:** specs unlock at level 10. ⚠️ Don't `.character level` a
+  spawned bot to reach that — the console boost crashes the worldserver on save;
+  level by playing/escorting (see Open issues).
 
 ## Later — multi-bot parties & tactics (parking lot)
 
