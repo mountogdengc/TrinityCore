@@ -147,6 +147,31 @@ shared corpse-return helper), `src/server/scripts/Custom/Bots/BotDeathPolicy.{h,
 Tests: `tests/game/DeathRevivePolicy.cpp`.
 Deeper docs: `docs/superpowers/specs/2026-06-20-death-qol-design.md`.
 
+## Retail base-Stamina fix (player_classlevelstats)
+
+Status: **done** (2026-06-22)
+
+TC master ships base **Stamina** in `player_classlevelstats` that is ~4.7x too low
+at low levels and far too high at high levels (e.g. L1=62 vs retail ~292; L80=86452
+vs retail ~2638 → ~1.7M HP). Since this core computes health as
+`stamina x HpPerStamina` (base health 0, and `HpPerSta.txt` is correct), bad stamina
+was the sole cause of non-retail health (the "grindy classic" feel). Fix sets `sta`
+to a retail-accurate, **class-independent** curve (retail homogenises low-level base
+stats) for **L1-80, all classes**.
+
+- Values from live retail captures via a custom **StatCapture** addon (records
+  `eff_sta`/`pos_sta` so base = `eff_sta - pos_sta`); **L1-70 measured**, L71-80
+  extrapolated. Curve is non-linear (~+29/lvl to L20, ~+12 L20-35, rising to ~+50 by
+  L70). Class-independence verified across Priest/Hunter/Warrior/etc. at overlapping
+  levels; model verified by `maxhp = eff_sta x HpPerStamina` (exact, e.g. Evoker L70
+  2504x13=32552).
+- Migration: `sql/custom/world_player_classlevelstats_stamina_retail.sql` (80 UPDATEs).
+  **Reversible:** backup table `player_classlevelstats_backup_prestaminafix`.
+  Requires a worldserver restart to take effect (stats cached at startup).
+- Not touched: str/agi/inte (within a couple points of retail already). Minor
+  follow-ups: `HpPerSta.txt` integer-rounding causes small high-level health error;
+  L71-80 stamina is extrapolated (refine if leveling past 70 on retail).
+
 ## World / DB content fixes
 
 Status: **ongoing**
