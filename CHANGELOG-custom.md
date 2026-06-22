@@ -170,6 +170,29 @@ on a WSL2 named volume, SOAP console, and the bot-enabling config
 Deeper docs: **`SETUP-NOTES.md`** (full runbook) and the build/run section of
 `CLAUDE.md`.
 
+### Worldserver crash-backtrace flow
+
+Status: **done**
+
+When the dockerised worldserver segfaults, WSL's crash handler
+(`core_pattern = |/wsl-capture-crash`) drops a multi-GB ELF core into
+`%LOCALAPPDATA%\Temp\wsl-crashes\`. These pile up fast (6–10 GB each) and are only
+useful as a gdb backtrace against the matching binary. Files:
+
+- `docker/debug/Dockerfile` — thin `trinitycore-debug:local` image (`FROM
+  trinitycore:local` + `gdb`) so the binary/symbols match the crashing process.
+  **Rebuild it whenever you rebuild `trinitycore:local`.**
+- `scripts/process-worldserver-crashes.ps1` — runs gdb (`thread apply all bt`)
+  against each pending dump, writes a small `.bt.txt` to `crash-backtraces/`
+  (gitignored), and only then deletes the giant `.dmp`. Fail-soft (no daemon /
+  missing image / locked dump → logged, dump kept).
+- `scripts/register-crash-task.ps1` — registers the Scheduled Task
+  `TrinityCore-WorldserverCrashBacktraces` via `schtasks` (every 15 min, current
+  user, while logged on — no elevation needed); `-Remove` to delete.
+- `scripts/run-crash-hidden.vbs` — the task launches the processor through this
+  (`WScript.Shell.Run … 0`) instead of `powershell.exe` directly, so it runs with
+  no window (avoids a console flashing on screen every 15 min).
+
 ---
 
 ## Code modifications to upstream files

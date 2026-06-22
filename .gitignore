@@ -29,6 +29,8 @@ cmake-build-*/*
 
 # Docker wrapper: local config, secrets, and large extracted/archived data
 .env
+# Local worldserver crash backtraces (see scripts/process-worldserver-crashes.ps1)
+/crash-backtraces/
 /data/
 /data.tar
 *.7z
