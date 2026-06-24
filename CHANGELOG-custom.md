@@ -225,6 +225,27 @@ useful as a gdb backtrace against the matching binary. Files:
 In-place edits to stock TrinityCore source (track these so an upstream merge
 doesn't silently revert them):
 
+- **Absorb-vs-creature-scaling fix (PW:Shield & all absorbs while leveling)** —
+  upstream computes melee/spell absorbs on the *pre-scaling* damage and only applies
+  the creature level-scaling multiplier (`Creature::GetDamageMultiplierForTarget`)
+  afterwards in `Unit::DealDamageMods`. For a low-level character fighting a
+  down-scaled creature (internal level = the zone ContentTuning `ScalingLevelMax`,
+  e.g. 30, vs a level-8 player → multiplier ≈ 0.068) the shield is consumed against
+  the unscaled ~18× damage and pops in one hit while only the tiny scaled amount
+  hits health — making PW:Shield (and every absorb) ~15× too weak. Fix moves the
+  scaling to *before* the absorb:
+  - **`src/server/game/Entities/Unit/Unit.{h,cpp}`** — `DealDamageMods` gains a
+    `bool applyDamageMultiplier = true` param; `CalculateMeleeDamage` and
+    `CalculateSpellDamageTaken` now apply `GetDamageMultiplierForTarget` before
+    armor/absorb.
+  - The four `DealDamageMods` calls that immediately follow those two functions pass
+    `applyDamageMultiplier=false` so the multiplier isn't applied twice:
+    `Unit::AttackerStateUpdate` (melee), `Spell.cpp` (direct spell hit), and
+    `SpellAuraEffects.cpp` ×2 (periodic/proc damage). The other `DealDamageMods`
+    callers (share/thorns/split redirects) keep the default and are unchanged.
+  - Net effect: damage that *isn't* absorbed is identical to before (scaling is
+    commutative there); only the absorbed case is corrected. Player-cast damage is
+    unaffected (a player's `GetDamageMultiplierForTarget` is 1.0).
 - **`src/server/game/Entities/Player/CollectionMgr.{h,cpp}`** — adds
   `enum AppearanceGrantSource { Normal, BulkLoginGrant }` and threads it through
   `AddItemAppearance`, so appearance-**set** rewards are skipped on the bulk
@@ -244,16 +265,10 @@ doesn't silently revert them):
   `/emote` dead-checks behind `Custom.AllowChatWhileDead`.
 - **`src/server/scripts/Commands/cs_misc.cpp`** — adds the `.revive corpse`
   variant to `HandleReviveCommand`.
-- **`src/server/game/Entities/Unit/Unit.cpp`** — ⚠️ **TEMPORARY DIAGNOSTIC** in
-  `Unit::CalcAbsorbResist` (school-absorb loop): a `TC_LOG_ERROR("spells",
-  "[ABSORB-DIAG] …")` line dumping `incomingDamage / shieldBefore /
-  reportedAbsorbed / shieldAfter / leakedDamage` for every absorb-shield hit (e.g.
-  Power Word: Shield). Added to diagnose a report of PW:Shield over-absorbing /
-  vanishing in one hit vs a low-level mob. The checked-in absorb code clamps
-  absorbed ≤ incoming damage (`RoundToInterval`, `DamageInfo::AbsorbDamage`), so a
-  logged `reportedAbsorbed > incomingDamage` would prove the running binary is
-  **stale** (built from older code), not this source. **Remove this log line once
-  the issue is diagnosed.**
+  _(The temporary `[ABSORB-DIAG]` / `[DMG-DIAG]` `TC_LOG_ERROR` instrumentation that
+  was added to `Unit::CalcAbsorbResist` and `Unit::AttackerStateUpdate` to diagnose
+  the PW:Shield issue has been removed now that the absorb-vs-scaling fix above is
+  confirmed.)_
 
 ---
 
