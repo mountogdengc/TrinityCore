@@ -33,3 +33,25 @@ TEST_CASE("Tirisfal recruitment helper grants corpse credit only once per owner 
     REQUIRE_FALSE(Tirisfal::Recruitment::CanGrantRecruitmentCredit(QUEST_STATUS_INCOMPLETE, true, true));
     REQUIRE_FALSE(Tirisfal::Recruitment::CanGrantRecruitmentCredit(QUEST_STATUS_COMPLETE, true, false));
 }
+
+TEST_CASE("Tirisfal recruitment helper prioritizes Darnell assist targets like a quest companion", "[TirisfalRecruitment]")
+{
+    using Tirisfal::Recruitment::DarnellAssistSource;
+
+    REQUIRE(Tirisfal::Recruitment::SelectDarnellAssistSource(true, true, true, true, true) == DarnellAssistSource::MasterVictim);
+    REQUIRE(Tirisfal::Recruitment::SelectDarnellAssistSource(false, true, true, true, true) == DarnellAssistSource::MasterSelectedTarget);
+    REQUIRE(Tirisfal::Recruitment::SelectDarnellAssistSource(false, false, true, true, true) == DarnellAssistSource::MasterAttacker);
+    REQUIRE(Tirisfal::Recruitment::SelectDarnellAssistSource(false, false, false, false, true) == DarnellAssistSource::SelfAttacker);
+    REQUIRE(Tirisfal::Recruitment::SelectDarnellAssistSource(false, false, true, false, false) == DarnellAssistSource::None);
+}
+
+TEST_CASE("Tirisfal recruitment helper only scans and collects corpses while Recruitment is active", "[TirisfalRecruitment]")
+{
+    REQUIRE(Tirisfal::Recruitment::ShouldScanRecruitmentCorpses(QUEST_STATUS_INCOMPLETE));
+    REQUIRE_FALSE(Tirisfal::Recruitment::ShouldScanRecruitmentCorpses(QUEST_STATUS_COMPLETE));
+    REQUIRE_FALSE(Tirisfal::Recruitment::ShouldScanRecruitmentCorpses(QUEST_STATUS_REWARDED));
+
+    REQUIRE(Tirisfal::Recruitment::CanCollectRecruitmentCorpse(QUEST_STATUS_INCOMPLETE, false));
+    REQUIRE_FALSE(Tirisfal::Recruitment::CanCollectRecruitmentCorpse(QUEST_STATUS_INCOMPLETE, true));
+    REQUIRE_FALSE(Tirisfal::Recruitment::CanCollectRecruitmentCorpse(QUEST_STATUS_COMPLETE, false));
+}

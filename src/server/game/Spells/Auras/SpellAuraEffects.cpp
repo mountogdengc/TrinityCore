@@ -6108,7 +6108,8 @@ void AuraEffect::HandlePeriodicPowerBurnAuraTick(Unit* target, Unit* caster) con
     // no SpellDamageBonus for burn mana
     caster->CalculateSpellDamageTaken(&damageInfo, int32(gain * dmgMultiplier), spellProto);
 
-    Unit::DealDamageMods(damageInfo.attacker, damageInfo.target, damageInfo.damage, &damageInfo.absorb);
+    // applyDamageMultiplier=false: scaling already applied in CalculateSpellDamageTaken (before absorb). See CHANGELOG-custom.md.
+    Unit::DealDamageMods(damageInfo.attacker, damageInfo.target, damageInfo.damage, &damageInfo.absorb, false);
 
     // Set trigger flag
     ProcFlagsInit procAttacker = PROC_FLAG_DEAL_HARMFUL_PERIODIC;
@@ -6218,7 +6219,8 @@ void AuraEffect::HandleProcTriggerDamageAuraProc(AuraApplication* aurApp, ProcEv
     uint32 damage = target->SpellDamageBonusDone(triggerTarget, GetSpellInfo(), GetAmountAsInt(), SPELL_DIRECT_DAMAGE, GetSpellEffectInfo(), 1, nullptr, this);
     damage = triggerTarget->SpellDamageBonusTaken(target, GetSpellInfo(), damage, SPELL_DIRECT_DAMAGE);
     target->CalculateSpellDamageTaken(&damageInfo, damage, GetSpellInfo());
-    Unit::DealDamageMods(damageInfo.attacker, damageInfo.target, damageInfo.damage, &damageInfo.absorb);
+    // applyDamageMultiplier=false: scaling already applied in CalculateSpellDamageTaken (before absorb). See CHANGELOG-custom.md.
+    Unit::DealDamageMods(damageInfo.attacker, damageInfo.target, damageInfo.damage, &damageInfo.absorb, false);
     TC_LOG_DEBUG("spells.aura.effect", "AuraEffect::HandleProcTriggerDamageAuraProc: Triggering {} spell damage from aura {} proc", damage, GetId());
     target->DealSpellDamage(&damageInfo, true);
     target->SendSpellNonMeleeDamageLog(&damageInfo);

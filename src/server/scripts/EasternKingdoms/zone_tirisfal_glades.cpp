@@ -15,7 +15,9 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "ObjectAccessor.h"
 #include "ScriptMgr.h"
+#include "ScriptedFollowerAI.h"
 #include "Player.h"
 #include "PlayerChoice.h"
 #include "ScriptedCreature.h"
@@ -53,6 +55,7 @@ enum RecruitmentCreatures
 namespace
 {
 Position const DarnellSummonPosition = { 1692.47f, 1653.24f, 130.32f, 0.0f };
+float constexpr RecruitmentCorpseScanRange = 6.0f;
 
 bool HasActiveDarnellQuest(Player* player)
 {
@@ -137,33 +140,123 @@ public:
     }
 };
 
-struct npc_scarlet_corpse_recruitment : public ScriptedAI
+struct npc_darnell_recruitment : public FollowerAI
 {
-    npc_scarlet_corpse_recruitment(Creature* creature) : ScriptedAI(creature) { }
+    npc_darnell_recruitment(Creature* creature) : FollowerAI(creature) { }
 
-    void MoveInLineOfSight(Unit* who) override
+    void IsSummonedBy(WorldObject* summoner) override
     {
-        ScriptedAI::MoveInLineOfSight(who);
-
-        TempSummon* darnell = who->ToTempSummon();
-        if (!darnell || darnell->GetEntry() != NPC_DARNELL_RECRUITMENT)
-            return;
-
-        Player* owner = darnell->GetSummonerUnit() ? darnell->GetSummonerUnit()->ToPlayer() : nullptr;
+        Player* owner = summoner ? summoner->ToPlayer() : nullptr;
         if (!owner)
             return;
 
-        ObjectGuid ownerGuid = owner->GetGUID();
-        bool alreadyCredited = _creditedOwners.find(ownerGuid) != _creditedOwners.end();
-        if (!Tirisfal::Recruitment::CanGrantRecruitmentCredit(owner->GetQuestStatus(QUEST_RECRUITMENT), true, alreadyCredited))
-            return;
+        me->SetReactState(REACT_DEFENSIVE);
+        StartFollow(owner);
+    }
 
-        owner->KilledMonsterCredit(NPC_SCARLET_CORPSE_RECRUITMENT, me->GetGUID());
-        _creditedOwners.insert(ownerGuid);
+    void UpdateFollowerAI(uint32 diff) override
+    {
+        if (!me->IsEngaged())
+            if (Unit* target = SelectAssistTarget())
+                me->EngageWithTarget(target);
+
+        if (_corpseScanTimer <= diff)
+        {
+            TryCollectNearbyCorpses();
+            _corpseScanTimer = 250;
+        }
+        else
+            _corpseScanTimer -= diff;
+
+        UpdateVictim();
+        me->DoMeleeAttackIfReady();
     }
 
 private:
-    GuidUnorderedSet _creditedOwners;
+    bool IsAssistTargetValid(Player* owner, Unit* target) const
+    {
+        return target && target->IsAlive() && owner->IsValidAttackTarget(target) && target->isInAccessiblePlaceFor(me) &&
+            CanAIAttack(target) && !target->HasBreakableByDamageCrowdControlAura();
+    }
+
+    Unit* FindMasterAttacker(Player* owner) const
+    {
+        for (Unit* attacker : owner->getAttackers())
+            if (IsAssistTargetValid(owner, attacker))
+                return attacker;
+
+        return nullptr;
+    }
+
+    Unit* FindSelfAttacker(Player* owner) const
+    {
+        for (Unit* attacker : me->getAttackers())
+            if (IsAssistTargetValid(owner, attacker))
+                return attacker;
+
+        if (Unit* combatTarget = me->GetCombatManager().GetAnyTarget())
+            if (IsAssistTargetValid(owner, combatTarget))
+                return combatTarget;
+
+        return nullptr;
+    }
+
+    Unit* SelectAssistTarget()
+    {
+        Player* owner = GetLeaderForFollower();
+        if (!owner)
+            return nullptr;
+
+        Unit* masterVictim = owner->GetVictim();
+        Unit* masterSelectedTarget = ObjectAccessor::GetUnit(*owner, owner->GetTarget());
+        Unit* masterAttacker = FindMasterAttacker(owner);
+        Unit* selfAttacker = FindSelfAttacker(owner);
+
+        switch (Tirisfal::Recruitment::SelectDarnellAssistSource(
+            IsAssistTargetValid(owner, masterVictim),
+            owner->IsInCombat(),
+            IsAssistTargetValid(owner, masterSelectedTarget),
+            masterAttacker != nullptr,
+            selfAttacker != nullptr))
+        {
+            case Tirisfal::Recruitment::DarnellAssistSource::MasterVictim:
+                return masterVictim;
+            case Tirisfal::Recruitment::DarnellAssistSource::MasterSelectedTarget:
+                return masterSelectedTarget;
+            case Tirisfal::Recruitment::DarnellAssistSource::MasterAttacker:
+                return masterAttacker;
+            case Tirisfal::Recruitment::DarnellAssistSource::SelfAttacker:
+                return selfAttacker;
+            case Tirisfal::Recruitment::DarnellAssistSource::None:
+            default:
+                return nullptr;
+        }
+    }
+
+    void TryCollectNearbyCorpses()
+    {
+        Player* owner = GetLeaderForFollower();
+        if (!owner || !Tirisfal::Recruitment::ShouldScanRecruitmentCorpses(owner->GetQuestStatus(QUEST_RECRUITMENT)))
+            return;
+
+        std::list<Creature*> corpses;
+        GetCreatureListWithEntryInGrid(corpses, me, NPC_SCARLET_CORPSE_RECRUITMENT, RecruitmentCorpseScanRange);
+
+        for (Creature* corpse : corpses)
+        {
+            if (!corpse)
+                continue;
+
+            if (!Tirisfal::Recruitment::CanCollectRecruitmentCorpse(owner->GetQuestStatus(QUEST_RECRUITMENT),
+                !_creditedCorpses.insert(corpse->GetGUID()).second))
+                continue;
+
+            owner->KilledMonsterCredit(NPC_SCARLET_CORPSE_RECRUITMENT, corpse->GetGUID());
+        }
+    }
+
+    uint32 _corpseScanTimer = 250;
+    GuidUnorderedSet _creditedCorpses;
 };
 
 void AddSC_tirisfal_glades()
@@ -174,5 +267,5 @@ void AddSC_tirisfal_glades()
 
     // Quest
     new quest_a_legend_you_can_hold();
-    RegisterCreatureAI(npc_scarlet_corpse_recruitment);
+    RegisterCreatureAI(npc_darnell_recruitment);
 }

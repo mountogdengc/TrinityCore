@@ -796,7 +796,7 @@ bool Unit::HasBreakableByDamageCrowdControlAura(Unit const* excludeCasterChannel
     return false;
 }
 
-/*static*/ void Unit::DealDamageMods(Unit const* attacker, Unit const* victim, uint32& damage, uint32* absorb)
+/*static*/ void Unit::DealDamageMods(Unit const* attacker, Unit const* victim, uint32& damage, uint32* absorb, bool applyDamageMultiplier /*= true*/)
 {
     if (!victim || !victim->IsAlive() || victim->HasUnitState(UNIT_STATE_IN_FLIGHT) || (victim->GetTypeId() == TYPEID_UNIT && victim->ToCreature()->IsEvadingAttacks()))
     {
@@ -806,7 +806,10 @@ bool Unit::HasBreakableByDamageCrowdControlAura(Unit const* excludeCasterChannel
         return;
     }
 
-    if (attacker)
+    // Creature level-scaling multiplier. When the damage was computed via CalculateMeleeDamage /
+    // CalculateSpellDamageTaken this is applied there (before absorb) instead, so callers pass
+    // applyDamageMultiplier=false to avoid scaling twice. See CHANGELOG-custom.md (PW:Shield absorb-vs-scaling fix).
+    if (attacker && applyDamageMultiplier)
         damage *= attacker->GetDamageMultiplierForTarget(victim);
 }
 
@@ -1199,6 +1202,11 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
     if (!victim || !victim->IsAlive())
         return;
 
+    // Apply creature level-scaling (GetDamageMultiplierForTarget) BEFORE mitigation/absorb, mirroring
+    // CalculateMeleeDamage, so absorb shields are consumed against the scaled (actually-dealt) damage.
+    // The matching DealDamageMods calls pass applyDamageMultiplier=false. See CHANGELOG-custom.md.
+    damage = int32(damage * GetDamageMultiplierForTarget(victim));
+
     SpellSchoolMask damageSchoolMask = SpellSchoolMask(damageInfo->schoolMask);
 
     // Spells with SPELL_ATTR4_IGNORE_DAMAGE_TAKEN_MODIFIERS ignore resilience because their damage is based off another spell's damage.
@@ -1387,6 +1395,13 @@ void Unit::CalculateMeleeDamage(Unit* victim, CalcDamageInfo* damageInfo, Weapon
 
     // Script Hook For CalculateMeleeDamage -- Allow scripts to change the Damage pre class mitigation calculations
     sScriptMgr->ModifyMeleeDamage(damageInfo->Target, damageInfo->Attacker, damage);
+
+    // Apply creature level-scaling (GetDamageMultiplierForTarget) BEFORE armor/absorb so absorb shields
+    // are consumed against the damage actually dealt, not the unscaled value. Without this, a heavily
+    // down-scaled attacker (e.g. a level-30-base creature vs a low-level player) destroys the whole shield
+    // against the pre-scale damage while only the tiny scaled amount hits health. The matching DealDamageMods
+    // call in AttackerStateUpdate passes applyDamageMultiplier=false. See CHANGELOG-custom.md.
+    damage = uint32(damage * GetDamageMultiplierForTarget(damageInfo->Target));
 
     // Calculate armor reduction
     if (Unit::IsDamageReducedByArmor(SpellSchoolMask(damageInfo->DamageSchoolMask)))
@@ -1919,10 +1934,6 @@ void Unit::HandleEmoteCommand(Emote emoteId, Player* target /*=nullptr*/, Trinit
         if (!absorbAurEff->GetSpellInfo()->HasAttribute(SPELL_ATTR6_ABSORB_CANNOT_BE_IGNORE))
             damageInfo.ModifyDamage(-absorbIgnoringDamage);
 
-        // [ABSORB-DIAG] temporary instrumentation (see CHANGELOG-custom.md) — capture pre-absorb state to diagnose PW:Shield over-absorb; remove when done
-        int32 const diagIncomingDamage = int32(damageInfo.GetDamage());
-        int32 const diagShieldBefore = currentAbsorb;
-
         uint32 tempAbsorb = uint32(currentAbsorb);
 
         bool defaultPrevented = false;
@@ -1953,16 +1964,6 @@ void Unit::HandleEmoteCommand(Emote emoteId, Player* target /*=nullptr*/, Trinit
 
         if (!absorbAurEff->GetSpellInfo()->HasAttribute(SPELL_ATTR6_ABSORB_CANNOT_BE_IGNORE))
             damageInfo.ModifyDamage(absorbIgnoringDamage);
-
-        // [ABSORB-DIAG] temporary instrumentation (see CHANGELOG-custom.md) — dumps incoming-vs-absorbed for school-absorb shields (e.g. Power Word: Shield); remove when done.
-        // If reportedAbsorbed ever exceeds incomingDamage, the bug is in code RUNNING that lacks the clamp (stale binary). If they match and the shield still vanishes in one hit, the bug is here/in data.
-        TC_LOG_ERROR("spells", "[ABSORB-DIAG] absorbSpell={} victim={} attacker={} damageSpell={} incomingDamage={} shieldBefore={} reportedAbsorbed={} shieldAfter={} leakedDamage={}",
-            absorbAurEff->GetId(),
-            damageInfo.GetVictim()->GetGUID().ToString(),
-            damageInfo.GetAttacker() ? damageInfo.GetAttacker()->GetGUID().ToString() : std::string("none"),
-            damageInfo.GetSpellInfo() ? damageInfo.GetSpellInfo()->Id : 0,
-            diagIncomingDamage, diagShieldBefore, currentAbsorb,
-            absorbAurEff->GetAmountAsInt(), int32(damageInfo.GetDamage()));
 
         if (currentAbsorb)
         {
@@ -2332,7 +2333,8 @@ void Unit::AttackerStateUpdate(Unit* victim, WeaponAttackType attType, bool extr
             CalcDamageInfo damageInfo;
             CalculateMeleeDamage(victim, &damageInfo, attType);
             // Send log damage message to client
-            Unit::DealDamageMods(damageInfo.Attacker, victim, damageInfo.Damage, &damageInfo.Absorb);
+            // applyDamageMultiplier=false: scaling already applied in CalculateMeleeDamage (before absorb). See CHANGELOG-custom.md.
+            Unit::DealDamageMods(damageInfo.Attacker, victim, damageInfo.Damage, &damageInfo.Absorb, false);
 
             // sparring
             if (Creature* victimCreature = victim->ToCreature())
