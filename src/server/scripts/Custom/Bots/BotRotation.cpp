@@ -50,11 +50,11 @@ namespace
 
         // AssistedCombatStep (SpellID, AssistedCombatID -> container, OrderIndex)
         // IS the spec's ordered ability list. We build the priority list straight
-        // from the steps, ordered by OrderIndex. The AssistedCombatRule rows layer
-        // ConditionType / ConditionValueN gating on top of steps -- intentionally
-        // NOT evaluated on this first pass (decoding Blizzard's condition opcodes is
-        // a follow-on slice). Sourcing from steps (not rules) is also what the
-        // low-level Hunter hotfix spike provides: it ships steps with no rules.
+        // from the steps, ordered by OrderIndex. AssistedCombatRule rows layer
+        // ConditionType / ConditionValueN gating on top of steps: for our CUSTOM
+        // steps (ID >= BOT_CUSTOM_ID_BASE) we evaluate fork opcodes (see
+        // EvaluateStepConditions); Blizzard's stock-step opcodes are undocumented and
+        // left fail-open (treated as eligible).
         // spec -> [(order, spellId, stepId)]
         std::unordered_map<int32, std::vector<std::tuple<int32, uint32, int32>>> specSteps;
         for (AssistedCombatStepEntry const* step : sAssistedCombatStepStore)
