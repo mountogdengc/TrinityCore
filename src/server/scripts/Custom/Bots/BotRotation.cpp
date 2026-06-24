@@ -3,16 +3,19 @@
  */
 
 #include "BotRotation.h"
+#include "BotRotationPolicy.h"
 #include "DB2Stores.h"
 #include "DB2Structure.h"
 #include "Map.h"
 #include "Player.h"
 #include "SharedDefines.h"
+#include "SpellAuras.h"
 #include "SpellDefines.h"
 #include "SpellHistory.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include <algorithm>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -23,8 +26,16 @@ namespace
     // priority first). Built lazily on first use and cached for the world's
     // lifetime: the Assisted Combat DB2 data is static (hotfix) reference data.
     // BotMgr drives this from the single world-update thread, so no locking.
-    std::unordered_map<int32, std::vector<uint32>> g_specPriority;
+    struct RuleData { int32 conditionType; int32 value1; int32 value2; int32 value3; };
+
+    // spec -> ordered [(spellId, stepId)]; stepId lets a candidate find its rules.
+    std::unordered_map<int32, std::vector<std::pair<uint32, int32>>> g_specPriority;
+    // custom stepId (>= 1000000) -> fork rules gating that step.
+    std::unordered_map<int32, std::vector<RuleData>> g_stepRules;
     bool g_indexBuilt = false;
+
+    // Custom Assisted Combat rows (our hotfix data) use IDs >= this base.
+    constexpr int32 BOT_CUSTOM_ID_BASE = 1000000;
 
     void EnsureIndex()
     {
@@ -44,7 +55,8 @@ namespace
         // NOT evaluated on this first pass (decoding Blizzard's condition opcodes is
         // a follow-on slice). Sourcing from steps (not rules) is also what the
         // low-level Hunter hotfix spike provides: it ships steps with no rules.
-        std::unordered_map<int32, std::vector<std::pair<int32, uint32>>> specSteps; // spec -> [(order, spellId)]
+        // spec -> [(order, spellId, stepId)]
+        std::unordered_map<int32, std::vector<std::tuple<int32, uint32, int32>>> specSteps;
         for (AssistedCombatStepEntry const* step : sAssistedCombatStepStore)
         {
             if (step->SpellID <= 0)
@@ -54,20 +66,63 @@ namespace
             if (specItr == containerSpec.end())
                 continue;
 
-            specSteps[specItr->second].emplace_back(step->OrderIndex, uint32(step->SpellID));
+            specSteps[specItr->second].emplace_back(step->OrderIndex, uint32(step->SpellID), int32(step->ID));
+        }
+
+        // Fork condition rules, indexed by step -- only for our custom steps.
+        for (AssistedCombatRuleEntry const* rule : sAssistedCombatRuleStore)
+        {
+            if (rule->AssistedCombatStepID < BOT_CUSTOM_ID_BASE)
+                continue;   // Blizzard step -> fail-open (no fork interpretation).
+            g_stepRules[rule->AssistedCombatStepID].push_back(
+                { rule->ConditionType, rule->ConditionValue1, rule->ConditionValue2, rule->ConditionValue3 });
         }
 
         for (auto& [specId, steps] : specSteps)
         {
             std::stable_sort(steps.begin(), steps.end(),
-                [](std::pair<int32, uint32> const& a, std::pair<int32, uint32> const& b)
-                { return a.first < b.first; });
+                [](std::tuple<int32, uint32, int32> const& a, std::tuple<int32, uint32, int32> const& b)
+                { return std::get<0>(a) < std::get<0>(b); });
 
-            std::vector<uint32>& priority = g_specPriority[specId];
-            for (std::pair<int32, uint32> const& step : steps)
-                if (std::find(priority.begin(), priority.end(), step.second) == priority.end())
-                    priority.push_back(step.second);   // keep the first (highest-priority) occurrence
+            std::vector<std::pair<uint32, int32>>& priority = g_specPriority[specId];
+            for (auto const& [order, spellId, stepId] : steps)
+            {
+                bool seen = false;
+                for (auto const& existing : priority)
+                    if (existing.first == spellId) { seen = true; break; }
+                if (!seen)
+                    priority.emplace_back(spellId, stepId);   // keep highest-priority occurrence
+            }
         }
+    }
+
+    // True if `target` still warrants casting `stepSpellId` from this step. No fork
+    // rules -> always true. Unknown opcodes -> true (fail-open). Drives the
+    // "don't re-apply an active DoT" gate.
+    bool EvaluateStepConditions(Player* bot, Unit* target, int32 stepId, uint32 stepSpellId)
+    {
+        auto itr = g_stepRules.find(stepId);
+        if (itr == g_stepRules.end())
+            return true;
+
+        for (RuleData const& rule : itr->second)
+        {
+            switch (rule.conditionType)
+            {
+                case BotRotationPolicy::BOT_COND_TARGET_MISSING_OR_EXPIRING_MY_AURA:
+                {
+                    uint32 const auraId = rule.value1 ? uint32(rule.value1) : stepSpellId;
+                    Aura const* aura = target->GetAura(auraId, bot->GetGUID());
+                    int32 const remainingMs = aura ? aura->GetDuration() : 0;
+                    if (!BotRotationPolicy::ShouldCastForMissingOrExpiringAura(aura != nullptr, remainingMs, rule.value2))
+                        return false;
+                    break;
+                }
+                default:
+                    break;   // unknown fork opcode -> fail-open
+            }
+        }
+        return true;
     }
 }
 
@@ -90,7 +145,7 @@ uint32 BotRotation::SelectSpell(Player* bot, Unit* target)
     SpellHistory* history = bot->GetSpellHistory();
     float const distance = bot->GetExactDist(target);
 
-    for (uint32 spellId : specItr->second)
+    for (auto const& [spellId, stepId] : specItr->second)
     {
         if (!bot->HasSpell(spellId))
             continue;
@@ -125,6 +180,9 @@ uint32 BotRotation::SelectSpell(Player* bot, Unit* target)
                 continue;
         }
         else if (distance > maxRange)
+            continue;
+
+        if (!EvaluateStepConditions(bot, target, stepId, spellId))
             continue;
 
         return spellId;
