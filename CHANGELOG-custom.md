@@ -309,6 +309,33 @@ stats) for **L1-80, all classes**.
   follow-ups: `HpPerSta.txt` integer-rounding causes small high-level health error;
   L71-80 stamina is extrapolated (refine if leveling past 70 on retail).
 
+## Food / drink restoration floor
+
+Status: **done** (2026-06-25)
+
+Classic-style food and drink restore health/mana through flat `SPELL_AURA_MOD_REGEN`
+(food) and `SPELL_AURA_MOD_POWER_REGEN` (drink) values, fed per-tick through
+`Player::RegenerateHealth` and `Player::UpdatePowerRegen`. Those flat values were
+tuned for vanilla-sized pools; after the **base-Stamina fix** raised low-level health
+~4.7x to retail-accurate values, eating/drinking restores a negligible fraction of the
+bar (the "food restores very little" report). Fix floors the food/drink contribution at
+a configurable **percent of max health/mana per 5s** — only for genuine food/drink auras
+(detected via `SpellInfo::GetSpellSpecific` → `SPELL_SPECIFIC_FOOD`/`DRINK`/
+`FOOD_AND_DRINK`), so other `MOD_REGEN`/`MOD_POWER_REGEN` sources are untouched and any
+food already restoring more than the floor keeps its larger value. Percent-based retail
+food (which ticks via `OBS_MOD_HEALTH`/`OBS_MOD_POWER`, a different path) is unaffected.
+
+- **Config** (`World.{h,cpp}`, `worldserver.conf.dist`,
+  `docker/worldserver/entrypoint.sh` — envs `TC_FOOD_DRINK_RESTORE`,
+  `TC_FOOD_DRINK_RESTORE_PCT_PER_5SEC`):
+  - `Custom.FoodDrinkRestore` (bool, default `1`) — enable the floor.
+  - `Custom.FoodDrinkRestorePctPer5Sec` (float, default `12.0`) — min % of max
+    health/mana restored per 5s while the food/drink aura is active.
+- **Mechanism:** health floor applied in `Player::RegenerateHealth` (ticks every 2s, so
+  the per-5s percent is scaled by `2/5`); mana floor applied in
+  `Player::UpdatePowerRegen` (per-second regen field, so the per-5s percent is `/5`).
+  Takes effect immediately — no rebuild needed beyond the C++ change itself.
+
 ## World / DB content fixes
 
 Status: **ongoing**
@@ -406,8 +433,15 @@ doesn't silently revert them):
   `DB2Stores.cpp` but exposes them to no other translation unit; the declarations let
   the M4 bot rotation engine (`BotRotation`) read them.
 - **`src/server/game/World/World.{h,cpp}`** — adds the five `CONFIG_CUSTOM_*`
-  Death QoL config keys plus the three `CONFIG_CUSTOM_CRAFTED_GEAR_BOOST*` keys
-  (enum + loader).
+  Death QoL config keys, the three `CONFIG_CUSTOM_CRAFTED_GEAR_BOOST*` keys, and the
+  two food/drink-restoration keys (`CONFIG_CUSTOM_FOOD_DRINK_RESTORE` bool +
+  `CONFIG_CUSTOM_FOOD_DRINK_RESTORE_PCT_PER_5SEC` float) (enum + loader).
+- **`src/server/game/Entities/Player/Player.cpp`** — `Player::RegenerateHealth` floors
+  food (`SPELL_AURA_MOD_REGEN`) restoration at `Custom.FoodDrinkRestorePctPer5Sec`% of
+  max health per 5s (food/drink restoration floor, above).
+- **`src/server/game/Entities/Unit/StatSystem.cpp`** — `Player::UpdatePowerRegen` floors
+  drink (`SPELL_AURA_MOD_POWER_REGEN`) restoration at the same percent of max power per
+  5s (food/drink restoration floor, above).
 - **`src/server/game/Spells/SpellEffects.cpp`** — `Spell::DoCreateItem` appends a
   client-known item-level-delta bonus list to low-level crafted equippable gear
   (low-level crafted-gear item-level boost, above).

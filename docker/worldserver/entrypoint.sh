@@ -54,6 +54,11 @@ BOT_AUTO_REVIVE_DELAY_MS="${TC_BOT_AUTO_REVIVE_DELAY_MS:-5000}"
 CRAFTED_GEAR_BOOST="${TC_CRAFTED_GEAR_BOOST:-1}"
 CRAFTED_GEAR_BOOST_ITEM_LEVELS="${TC_CRAFTED_GEAR_BOOST_ITEM_LEVELS:-7}"
 CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL="${TC_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL:-60}"
+# Custom: food/drink restoration floor (see CHANGELOG-custom.md). Default ON; floors
+# food (health) and drink (mana) restoration at a % of max per 5s so flat classic-era
+# values aren't negligible against this fork's retail-accurate health/mana pools.
+FOOD_DRINK_RESTORE="${TC_FOOD_DRINK_RESTORE:-1}"
+FOOD_DRINK_RESTORE_PCT_PER_5SEC="${TC_FOOD_DRINK_RESTORE_PCT_PER_5SEC:-12.0}"
 # AuctionHouseBot ("auction house simulator"): populate the AH with listings
 # (seller) and buy player listings (buyer) so the economy feels alive on a
 # solo/bot server. Default ON; set TC_AHBOT_SELLER / TC_AHBOT_BUYER to 0 to
@@ -128,6 +133,8 @@ set_conf "Custom.PlayerAutoReviveDelayMs"   "$PLAYER_AUTO_REVIVE_DELAY_MS"  "$CO
 set_conf "Custom.BotAutoRevive"             "$BOT_AUTO_REVIVE"              "$CONF"
 set_conf "Custom.BotAutoReviveDelayMs"      "$BOT_AUTO_REVIVE_DELAY_MS"     "$CONF"
 set_conf "Custom.CraftedGearBoost"                "$CRAFTED_GEAR_BOOST"              "$CONF"
+set_conf "Custom.FoodDrinkRestore"                "$FOOD_DRINK_RESTORE"             "$CONF"
+set_conf "Custom.FoodDrinkRestorePctPer5Sec"      "$FOOD_DRINK_RESTORE_PCT_PER_5SEC" "$CONF"
 set_conf "Custom.CraftedGearBoostItemLevels"      "$CRAFTED_GEAR_BOOST_ITEM_LEVELS" "$CONF"
 set_conf "Custom.CraftedGearBoostMaxRequiredLevel" "$CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL" "$CONF"
 # AuctionHouseBot: master seller switch + master/per-faction buyer switches. The

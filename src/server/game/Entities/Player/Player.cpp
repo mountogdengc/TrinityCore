@@ -1767,7 +1767,28 @@ void Player::RegenerateHealth()
 
             addValue *= GetTotalAuraMultiplier(SPELL_AURA_MOD_HEALTH_REGEN_PERCENT);
 
-            addValue += GetTotalAuraModifier(SPELL_AURA_MOD_REGEN) * 0.4f;
+            // Custom: classic-style food restores health via SPELL_AURA_MOD_REGEN flat values that are
+            // negligible against this fork's retail-accurate (much larger) low-level health pools. Floor
+            // the food contribution at a configurable % of max health per 5s. RegenerateHealth ticks every
+            // 2s, so scale the per-5s percent by 2/5. Only genuine food auras are floored (detected via
+            // GetSpellSpecific), leaving other MOD_REGEN sources untouched. See CHANGELOG-custom.md.
+            float foodRegen = 0.0f;
+            bool hasFood = false;
+            for (AuraEffect const* aurEff : GetAuraEffectsByType(SPELL_AURA_MOD_REGEN))
+            {
+                foodRegen += aurEff->GetAmount() * 0.4f;
+                SpellSpecificType const spec = aurEff->GetSpellInfo()->GetSpellSpecific();
+                if (spec == SPELL_SPECIFIC_FOOD || spec == SPELL_SPECIFIC_FOOD_AND_DRINK)
+                    hasFood = true;
+            }
+
+            if (hasFood && sWorld->getBoolConfig(CONFIG_CUSTOM_FOOD_DRINK_RESTORE))
+            {
+                float const floorRegen = CalculatePct(float(GetMaxHealth()), sWorld->getFloatConfig(CONFIG_CUSTOM_FOOD_DRINK_RESTORE_PCT_PER_5SEC)) * (2.0f / 5.0f);
+                foodRegen = std::max(foodRegen, floorRegen);
+            }
+
+            addValue += foodRegen;
         }
         else if (HasAuraType(SPELL_AURA_MOD_REGEN_DURING_COMBAT))
             ApplyPct(addValue, GetTotalAuraModifier(SPELL_AURA_MOD_REGEN_DURING_COMBAT));

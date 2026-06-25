@@ -1165,6 +1165,36 @@ Custom.CraftedGearBoostItemLevels = 7
 Custom.CraftedGearBoostMaxRequiredLevel = 60
 
 ###############################################################################
+# CUSTOM: FOOD / DRINK RESTORATION FLOOR (fork addition)
+#   See CHANGELOG-custom.md
+#
+#    Custom.FoodDrinkRestore
+#        Description: Classic-style food/drink restore health/mana via flat
+#                     SPELL_AURA_MOD_REGEN / SPELL_AURA_MOD_POWER_REGEN values that
+#                     are negligible against this fork's retail-accurate (much
+#                     larger) low-level health/mana pools - so eating/drinking
+#                     "restores very little". When enabled, the food (health) and
+#                     drink (mana) contribution is floored at a percentage of max
+#                     health/mana per 5s (see below). Only genuine food/drink auras
+#                     are affected; other regen sources are untouched, and food that
+#                     already restores more than the floor keeps its larger value.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled, vanilla)
+
+Custom.FoodDrinkRestore = 1
+
+#
+#    Custom.FoodDrinkRestorePctPer5Sec
+#        Description: The floor used by Custom.FoodDrinkRestore: minimum percent of
+#                     max health (food) / max mana (drink) restored per 5 seconds
+#                     while the food/drink aura is active. 12 ~= a full bar in ~40s
+#                     from empty (faster when topping off a partial bar). Raise for
+#                     snappier downtime, lower for a more classic pace.
+#        Default:     12.0
+
+Custom.FoodDrinkRestorePctPer5Sec = 12.0
+
+###############################################################################
 
 #
 #    Instance.UnloadDelay

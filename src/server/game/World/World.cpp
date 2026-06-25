@@ -628,6 +628,8 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "Custom.BotAutoRevive"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_BOT_AUTO_REVIVE },
         // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md). On by default.
         { .Name = "Custom.CraftedGearBoost"sv, .DefaultValue = true, .Index = CONFIG_CUSTOM_CRAFTED_GEAR_BOOST },
+        // Custom: food/drink restoration floor (see CHANGELOG-custom.md). On by default.
+        { .Name = "Custom.FoodDrinkRestore"sv, .DefaultValue = true, .Index = CONFIG_CUSTOM_FOOD_DRINK_RESTORE },
         { .Name = "CastUnstuck"sv, .DefaultValue = true, .Index = CONFIG_CAST_UNSTUCK },
         { .Name = "GM.AllowInvite"sv, .DefaultValue = false, .Index = CONFIG_ALLOW_GM_GROUP },
         { .Name = "GM.LowerSecurity"sv, .DefaultValue = false, .Index = CONFIG_GM_LOWER_SECURITY },
@@ -949,6 +951,8 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "Stats.Limits.Parry"sv, .DefaultValue = 95.0f, .Index = CONFIG_STATS_LIMITS_PARRY },
         { .Name = "Stats.Limits.Block"sv, .DefaultValue = 95.0f, .Index = CONFIG_STATS_LIMITS_BLOCK },
         { .Name = "Stats.Limits.Crit"sv, .DefaultValue = 95.0f, .Index = CONFIG_STATS_LIMITS_CRIT },
+        // Custom: food/drink restoration floor as % of max health/mana per 5s (see CHANGELOG-custom.md).
+        { .Name = "Custom.FoodDrinkRestorePctPer5Sec"sv, .DefaultValue = 12.0f, .Index = CONFIG_CUSTOM_FOOD_DRINK_RESTORE_PCT_PER_5SEC, .Min = 0.0f },
         { .Name = "Pvp.FactionBalance.Pct5"sv, .DefaultValue = 0.6f, .Index = CONFIG_CALL_TO_ARMS_5_PCT },
         { .Name = "Pvp.FactionBalance.Pct10"sv, .DefaultValue = 0.7f, .Index = CONFIG_CALL_TO_ARMS_10_PCT },
         { .Name = "Pvp.FactionBalance.Pct20"sv, .DefaultValue = 0.8f, .Index = CONFIG_CALL_TO_ARMS_20_PCT },
