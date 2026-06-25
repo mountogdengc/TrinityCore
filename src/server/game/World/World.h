@@ -209,6 +209,8 @@ enum WorldBoolConfigs : uint32
     CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD,
     CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_AT_CORPSE,
     CONFIG_CUSTOM_BOT_AUTO_REVIVE,
+    // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md)
+    CONFIG_CUSTOM_CRAFTED_GEAR_BOOST,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -445,6 +447,9 @@ enum WorldIntConfigs : uint32
     // Custom: Death QoL (see docs/superpowers/specs/2026-06-20-death-qol-design.md)
     CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_DELAY_MS,
     CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS,
+    // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md)
+    CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_ITEM_LEVELS,
+    CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL,
     INT_CONFIG_VALUE_COUNT
 };
 

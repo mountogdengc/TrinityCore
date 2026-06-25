@@ -48,6 +48,12 @@ PLAYER_AUTO_REVIVE_AT_CORPSE="${TC_PLAYER_AUTO_REVIVE_AT_CORPSE:-0}"
 PLAYER_AUTO_REVIVE_DELAY_MS="${TC_PLAYER_AUTO_REVIVE_DELAY_MS:-5000}"
 BOT_AUTO_REVIVE="${TC_BOT_AUTO_REVIVE:-0}"
 BOT_AUTO_REVIVE_DELAY_MS="${TC_BOT_AUTO_REVIVE_DELAY_MS:-5000}"
+# Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md).
+# Default ON; set TC_CRAFTED_GEAR_BOOST=0 to restore vanilla. Adds a flat item-level
+# bump to crafted equippable gear whose required level is <= the max below.
+CRAFTED_GEAR_BOOST="${TC_CRAFTED_GEAR_BOOST:-1}"
+CRAFTED_GEAR_BOOST_ITEM_LEVELS="${TC_CRAFTED_GEAR_BOOST_ITEM_LEVELS:-7}"
+CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL="${TC_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL:-60}"
 # Account-wide collection grants (toys/heirlooms/appearances/warband scenes) default
 # ON in the core, but granting ALL appearances on every login builds an enormous
 # collection update that crashes a real client's login. Off by default here until
@@ -107,6 +113,9 @@ set_conf "Custom.PlayerAutoReviveAtCorpse"  "$PLAYER_AUTO_REVIVE_AT_CORPSE" "$CO
 set_conf "Custom.PlayerAutoReviveDelayMs"   "$PLAYER_AUTO_REVIVE_DELAY_MS"  "$CONF"
 set_conf "Custom.BotAutoRevive"             "$BOT_AUTO_REVIVE"              "$CONF"
 set_conf "Custom.BotAutoReviveDelayMs"      "$BOT_AUTO_REVIVE_DELAY_MS"     "$CONF"
+set_conf "Custom.CraftedGearBoost"                "$CRAFTED_GEAR_BOOST"              "$CONF"
+set_conf "Custom.CraftedGearBoostItemLevels"      "$CRAFTED_GEAR_BOOST_ITEM_LEVELS" "$CONF"
+set_conf "Custom.CraftedGearBoostMaxRequiredLevel" "$CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL" "$CONF"
 set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"          "$CONF"
 set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
 set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"

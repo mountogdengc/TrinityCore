@@ -169,6 +169,41 @@ shared corpse-return helper), `src/server/scripts/Custom/Bots/BotDeathPolicy.{h,
 Tests: `tests/game/DeathRevivePolicy.cpp`.
 Deeper docs: `docs/superpowers/specs/2026-06-20-death-qol-design.md`.
 
+## Low-level crafted-gear item-level boost
+
+Status: **done**
+
+Crafted (tradeskill) equippable gear tends to lose to same-level vendor/quest
+greens while leveling, so professions feel pointless. At craft time the produced
+item gets a **flat item-level bump** so the extra effort actually pays off.
+
+- **Mechanism:** `Spell::DoCreateItem` appends a **client-known item-level-delta
+  bonus list** (`ItemBonusMgr::GetItemBonusListForItemLevelDelta`, the retail
+  upgrade system) to the crafted item. Because these delta bonus lists ship in the
+  client's `ItemBonusListLevelDelta.db2`, the boost renders correctly (stats,
+  item level, tooltip) with **no custom DB2 rows and no hotfix** — server and
+  client compute the same result. It only adds item level, not required level, so
+  a low-level character can still equip the result.
+- **Scope:** only weapons/armor (equippable; class WEAPON or ARMOR) whose base
+  required level is `<= Custom.CraftedGearBoostMaxRequiredLevel` — "low levels
+  only"; end-game crafting is already competitive. If the exact `+N` delta has no
+  upgrade bonus list, the largest available delta below it is used.
+- **On by default** (the rest of the fork's custom flags default off; this one is
+  requested on). Toggle/tune on a worldserver restart (no rebuild) via config or
+  entrypoint env — only the C++ hook itself needs a rebuild.
+
+Config keys (`World.{h,cpp}`, `worldserver.conf.dist`,
+`docker/worldserver/entrypoint.sh` — envs `TC_CRAFTED_GEAR_BOOST`,
+`TC_CRAFTED_GEAR_BOOST_ITEM_LEVELS`, `TC_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL`):
+
+- `Custom.CraftedGearBoost` (bool, default `1`) — enable.
+- `Custom.CraftedGearBoostItemLevels` (int, default `7`) — item levels to add.
+- `Custom.CraftedGearBoostMaxRequiredLevel` (int, default `60`) — only boost gear
+  at/below this required level (`0` disables).
+
+Key files: `src/server/game/Spells/SpellEffects.cpp` (`Spell::DoCreateItem` hook).
+Config: `World.{h,cpp}`, `worldserver.conf.dist`, `docker/worldserver/entrypoint.sh`.
+
 ## Retail base-Stamina fix (player_classlevelstats)
 
 Status: **done** (2026-06-22)
@@ -282,7 +317,11 @@ doesn't silently revert them):
   `DB2Stores.cpp` but exposes them to no other translation unit; the declarations let
   the M4 bot rotation engine (`BotRotation`) read them.
 - **`src/server/game/World/World.{h,cpp}`** — adds the five `CONFIG_CUSTOM_*`
-  Death QoL config keys (enum + loader).
+  Death QoL config keys plus the three `CONFIG_CUSTOM_CRAFTED_GEAR_BOOST*` keys
+  (enum + loader).
+- **`src/server/game/Spells/SpellEffects.cpp`** — `Spell::DoCreateItem` appends a
+  client-known item-level-delta bonus list to low-level crafted equippable gear
+  (low-level crafted-gear item-level boost, above).
 - **`src/server/game/Handlers/ChatHandler.cpp`** — guards the `/say` `/yell`
   `/emote` dead-checks behind `Custom.AllowChatWhileDead`.
 - **`src/server/scripts/Commands/cs_misc.cpp`** — adds the `.revive corpse`
