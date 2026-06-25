@@ -360,12 +360,14 @@ void BotMgr::UpdateFollow()
             ChaseAngle const chaseAngle(BotMovementPolicy::FormationChaseAngle(entry.formationSlot));
             if (BotMovementPolicy::IsRangedClass(bot->GetClass()))
             {
-                // Ranged: hold at casting range and never melee -- the rotation does the
-                // damage. Re-issue the chase on a target switch or if the generator was
-                // dropped (teleport / idle-follow). No Attack() => no running to contact.
+                // Ranged: hold at casting range; the rotation does the damage. Attack(target,
+                // false) sets the victim WITHOUT starting melee swings -- the chase generator
+                // halts unless GetVictim()==target (ChaseMovementGenerator::HasLostTarget), and
+                // ChaseRange(BOT_RANGED_DIST) -- not Attack() -- is what stops the bot closing to
+                // melee. Re-issue on a target switch or if the generator was dropped.
                 if (entry.combatTarget != target->GetGUID() || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
                 {
-                    bot->AttackStop();   // defensive: ensure no stale melee auto-attack
+                    bot->Attack(target, false);   // set m_attacking (chase needs it); false => no melee swings
                     mm->MoveChase(target, ChaseRange(BOT_RANGED_DIST), chaseAngle);
                     entry.combatTarget = target->GetGUID();
                 }
