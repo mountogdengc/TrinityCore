@@ -21,11 +21,13 @@
 // void Add${NameOfDirectory}Scripts()
 void AddSC_bots();
 void AddSC_custom_secondary_professions();
+void AddSC_custom_weapon_skills();
 void AddSC_deathqol();
 
 void AddCustomScripts()
 {
     AddSC_bots();
     AddSC_custom_secondary_professions();
+    AddSC_custom_weapon_skills();
     AddSC_deathqol();
 }
