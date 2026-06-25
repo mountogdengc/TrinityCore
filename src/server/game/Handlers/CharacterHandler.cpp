@@ -1177,6 +1177,15 @@ void WorldSession::LoadBotCharacter(ObjectGuid guid)
     AddQueryHolderCallback(CharacterDatabase.DelayQueryHolder(holder)).AfterComplete([this](SQLQueryHolderBase const& holder)
     {
         HandlePlayerLogin(static_cast<LoginQueryHolder const&>(holder));
+
+        // A headless bot never runs the client-driven init-mover / time-sync handshake that
+        // sets PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME on login. Without it,
+        // Player::CanNeverSee() returns true forever, so the bot cannot "see" any object --
+        // breaking IsValidAttackTarget and therefore every enemy-targeted spell effect (the
+        // cast "succeeds" but applies no damage/auras). Set it ourselves so the bot is a
+        // first-class member of the server visibility system. See CHANGELOG-custom.md.
+        if (Player* bot = GetPlayer())
+            bot->SetPlayerLocalFlag(PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME);
     });
 }
 
