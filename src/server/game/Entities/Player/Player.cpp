@@ -473,7 +473,7 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     SetInventorySlotCount(INVENTORY_DEFAULT_SIZE);
 
     // set starting level
-    SetLevel(GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet), false);
+    SetLevel(GetStartLevel(createInfo->Race, createInfo->Class, createInfo->TemplateSet, m_createMode == PlayerCreateMode::NPE), false);
 
     InitRunes();
 
@@ -24369,10 +24369,14 @@ void Player::ReportedAfkBy(Player* reporter)
     reporter->SendDirectMessage(reportAfkResult.Write());
 }
 
-uint8 Player::GetStartLevel(uint8 race, uint8 playerClass, Optional<int32> characterTemplateId) const
+uint8 Player::GetStartLevel(uint8 race, uint8 playerClass, Optional<int32> characterTemplateId, bool useNewPlayerExperience /*= false*/) const
 {
     uint8 startLevel = sWorld->getIntConfig(CONFIG_START_PLAYER_LEVEL);
-    if (sChrRacesStore.AssertEntry(race)->GetFlags().HasFlag(ChrRacesFlag::IsAlliedRace))
+    // Allied races normally start at the (higher) allied-race level in their heritage start.
+    // When the character is instead created through the New Player Experience (Exile's Reach),
+    // they start at the normal level-1 NPE just like the core races, so the allied-race bump
+    // must not apply in that case (Custom: allied races can pick Exile's Reach at level 1).
+    if (!useNewPlayerExperience && sChrRacesStore.AssertEntry(race)->GetFlags().HasFlag(ChrRacesFlag::IsAlliedRace))
         startLevel = sWorld->getIntConfig(CONFIG_START_ALLIED_RACE_LEVEL);
 
     if (playerClass == CLASS_DEATH_KNIGHT)
