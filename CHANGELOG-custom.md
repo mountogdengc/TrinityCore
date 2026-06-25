@@ -109,6 +109,28 @@ primary slots).
 Key files: `src/server/scripts/Custom/custom_secondary_professions.cpp`
 (registered via `custom_script_loader.cpp`).
 
+## Custom weapon skills (all weapons, any class)
+
+Status: **done**
+
+On a character's **first login**, grants **all 15 weapon skill lines** (axes/2H axes,
+bows, guns, maces/2H maces, polearms, swords/2H swords, warglaives, staves, fist
+weapons, daggers, crossbows, wands) so any class can equip and use any weapon type
+from level 1 (e.g. a mage wielding a polearm).
+
+Retail dropped weapon-skill *leveling* (combat uses `GetMaxSkillValueForLevel()`,
+not the stored value), but the skill line still acts as the binary equip gate in
+`Player::CanUseItem` (`GetSkillValue(itemSkill) == 0` → proficiency needed). The
+script grants the skill line at value 1 (no combat effect) **and** re-asserts the
+client-side weapon proficiency bitmask (`m_WeaponProficiency`) on **every** login,
+since that bitmask is never persisted (rebuilt from known proficiency spells each
+login). Skill lines persist, so they're only granted once; flip
+`WEAPON_SKILLS_GRANT_ON_EVERY_LOGIN` to top up pre-existing characters. Fishing
+poles are excluded (Fishing is handled by the secondary-professions script).
+
+Key files: `src/server/scripts/Custom/custom_weapon_skills.cpp`
+(registered via `custom_script_loader.cpp`).
+
 ## Tirisfal recruitment (Darnell escort)
 
 Status: **done**
