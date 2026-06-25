@@ -41,11 +41,40 @@ DB-persisted, testable; no client needed to *have* traits (a viewer/editor is UI
 
 ## M-F3 — Bot Inspector (debug/control panel)
 
-A diagnostic + control surface (ref `doc/2026-06-25_12-53-39.webp`): tabs Brain /
-Combat / Kit / Quests / Bags / Persona / State / Move / Mind / LLM, with live
-"Doing / Why / Control / State / Health / Avoiding". Server already has most of this
-state; exposable first via a `.bot inspect <name>` command dumping the same fields,
-addon panel later.
+A diagnostic + control surface (refs `doc/2026-06-25_12-53-39.webp` and the
+`Waloria_*.mp4` capture): tabs Brain / Combat / Kit / Quests / Bags / Persona /
+State / Move / Mind / LLM (the video shows a collapsed-category variant: Brain /
+Combat / Etc / Quests). Live telemetry per bot:
+- **Doing** — high-level state (resting / wandering / idle).
+- **Casting & Moving** — granular movement logic ("moving to do → wandering",
+  "moving on path").
+- **State** — combat status (COMBAT / …); **Target** (none / unit).
+- **Pos & Pathing** — exact coordinates + number of nodes in the current path.
+
+Server already owns most of this state; exposable first via a `.bot inspect <name>`
+command dumping the same fields, addon panel later.
+
+## M-F6 — Admin world-map: bot tracking + road routing (avoid-mobs pathing)
+
+A top-down GM/admin map (the `20260620-*.mp4` capture) showing every bot as an icon,
+with **white path lines drawn along roads** — bots route along roads to **minimize
+random mob encounters** rather than beelining. The admin **hovers** a bot for
+name/status and **clicks** to view/set its destination and route.
+
+Two layers:
+- **Server-side routing** — a road/path graph the bots prefer when traveling
+  (waypoint network with mob-density-aware cost), feeding the same MotionMaster path
+  the bot already walks. This is the substantive, testable piece and is independent
+  of any UI.
+- **Admin map UI** — bot positions + routes + click-to-retarget. On retail this is
+  the hardest UI to reproduce (the WotLK build likely drove it with custom
+  opcodes/world-map hooks); candidates are a minimap/world-map **addon** fed by addon
+  messages, or an **out-of-game web/SOAP dashboard** reading bot positions (no client
+  changes — likely the most practical first cut).
+
+Related autonomy seen in the videos (idle/town behavior): bots **wander/rest** in
+town, **earn/use mounts**, and even **cast and use a Mage portal**. Track that as its
+own "bot idle/autonomy" follow-up under this milestone.
 
 ## M-F4 — Dialogue & recruitment flavor (optionally LLM-backed)
 
@@ -62,8 +91,10 @@ Per-slot appearance builder and saved outfit presets applied to bots (refs
 bot's items; cosmetic only. UI is addon-tier; a `.bot outfit <name>` command could
 drive saved presets without UI.
 
-## Not yet captured
+## Source media
 
-Two screen-capture videos exist in `doc/` (`Waloria_gC8m1Jg6pC.mp4`,
-`20260620-1842-29.7426435.mp4`) showing bot features in motion — not transcribed here.
-Summarize anything they show that the stills above miss, and add it.
+Reference captures in `doc/` (2026-06-25): screenshots `image.png`–`image7.png`,
+`2026-06-25_12-32-21.webp` (formation panel), `2026-06-25_12-53-39.webp` (inspector),
+and two videos — `Waloria_gC8m1Jg6pC.mp4` (tavern chatter + bot inspector in motion)
+and `20260620-1842-29.7426435.mp4` (admin world-map with road routing). Video content
+is folded into M-F3, M-F4, and M-F6 above.
