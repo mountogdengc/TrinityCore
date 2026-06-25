@@ -156,6 +156,24 @@ poles are excluded (Fishing is handled by the secondary-professions script).
 Key files: `src/server/scripts/Custom/custom_weapon_skills.cpp`
 (registered via `custom_script_loader.cpp`).
 
+## Cross-faction play (two-side interaction)
+
+Status: **done**
+
+Lets Horde and Alliance **group, chat in channels, share calendars/guilds, and
+trade** with each other (this fork is PvE-only, so the usual faction separation
+isn't wanted). Driven by a single entrypoint env flag `TC_ALLOW_CROSS_FACTION`
+(default **1**), which sets the core's `AllowTwoSide.Interaction.{Calendar,Channel,
+Group,Guild}` and `AllowTwoSide.Trade` configs. Config-only — applies on a
+worldserver **restart, no rebuild**. Set `TC_ALLOW_CROSS_FACTION=0` to restore
+vanilla same-faction-only behavior.
+
+`AllowTwoSide.Interaction.Auction` is intentionally **not** wired (kept at the core
+default 1): its own config docs warn that flipping it in production strands
+already-placed faction-AH auctions.
+
+Key files: `docker/worldserver/entrypoint.sh` (env flag + `set_conf` calls).
+
 ## Tirisfal recruitment (Darnell escort)
 
 Status: **done**
