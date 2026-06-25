@@ -204,6 +204,43 @@ Config keys (`World.{h,cpp}`, `worldserver.conf.dist`,
 Key files: `src/server/game/Spells/SpellEffects.cpp` (`Spell::DoCreateItem` hook).
 Config: `World.{h,cpp}`, `worldserver.conf.dist`, `docker/worldserver/entrypoint.sh`.
 
+## Auction house simulator (AuctionHouseBot)
+
+Status: **enabled by default**
+
+Turns on upstream's **AuctionHouseBot** (`src/server/game/AuctionHouseBot/`, already
+compiled into the core) so the auction house feels alive on a solo/bot server:
+the **seller** populates the AH with listings and the **buyer** purchases player
+listings (so you can actually sell things). This is **config only — no rebuild**;
+`sAuctionBot->Initialize()`/`Update()` already run unconditionally, gated purely on
+the config flags.
+
+Enabled via the worldserver entrypoint (restart to apply), default ON, env-toggleable:
+
+- `AuctionHouseBot.Seller.Enabled = 1` — env `TC_AHBOT_SELLER` (default `1`).
+- `AuctionHouseBot.Buyer.Enabled = 1` + the three per-faction
+  `AuctionHouseBot.Buyer.{Alliance,Horde,Neutral}.Enabled = 1` (the core gates the
+  buyer on both the master flag and the per-faction flag) — env `TC_AHBOT_BUYER`
+  (default `1`); set to `0` for a populate-only AH that doesn't buy your listings.
+
+Notes:
+- The seller's faction item-amount ratios keep their `conf.dist` defaults (100 each),
+  so all auction houses get stocked. No dedicated bot account is needed — with
+  `AuctionHouseBot.Account = 0` the seller creates ownerless ("system") auctions,
+  which the buyer recognises via `IsBotChar()` and won't re-buy.
+- Volume/prices/quality mix are tunable through the large `AuctionHouseBot.*` block
+  in `worldserver.conf.dist` (e.g. `AuctionHouseBot.Items.Amount.{White,Green,Blue,Purple}`).
+  `.ahbot` GM commands inspect/rebuild the populated AH.
+- ⚠️ This fork runs `AllowTwoSide.Interaction.Auction = 1`; the core notes
+  faction-specific AHBot settings "might not work as expected" with cross-faction
+  auctions on. Worth an in-game check that listings show up in the retail 12.0.5
+  client's AH; if a faction AH looks empty, tune the per-faction ratios. AHBot does
+  use the modern commodity auction API (`AuctionPosting` / `IsCommodity`), so it is
+  built for the retail AH, not legacy-only.
+
+Config: `docker/worldserver/entrypoint.sh` (the `AHBOT_*` env + `set_conf` lines);
+all knobs live in the upstream `AuctionHouseBot.*` block of `worldserver.conf.dist`.
+
 ## Retail base-Stamina fix (player_classlevelstats)
 
 Status: **done** (2026-06-22)

@@ -54,6 +54,13 @@ BOT_AUTO_REVIVE_DELAY_MS="${TC_BOT_AUTO_REVIVE_DELAY_MS:-5000}"
 CRAFTED_GEAR_BOOST="${TC_CRAFTED_GEAR_BOOST:-1}"
 CRAFTED_GEAR_BOOST_ITEM_LEVELS="${TC_CRAFTED_GEAR_BOOST_ITEM_LEVELS:-7}"
 CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL="${TC_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL:-60}"
+# AuctionHouseBot ("auction house simulator"): populate the AH with listings
+# (seller) and buy player listings (buyer) so the economy feels alive on a
+# solo/bot server. Default ON; set TC_AHBOT_SELLER / TC_AHBOT_BUYER to 0 to
+# disable a side. Pure config (no rebuild); the seller/buyer faction ratios keep
+# their conf.dist defaults so all auction houses get populated.
+AHBOT_SELLER="${TC_AHBOT_SELLER:-1}"
+AHBOT_BUYER="${TC_AHBOT_BUYER:-1}"
 # Account-wide collection grants (toys/heirlooms/appearances/warband scenes) default
 # ON in the core, but granting ALL appearances on every login builds an enormous
 # collection update that crashes a real client's login. Off by default here until
@@ -116,6 +123,15 @@ set_conf "Custom.BotAutoReviveDelayMs"      "$BOT_AUTO_REVIVE_DELAY_MS"     "$CO
 set_conf "Custom.CraftedGearBoost"                "$CRAFTED_GEAR_BOOST"              "$CONF"
 set_conf "Custom.CraftedGearBoostItemLevels"      "$CRAFTED_GEAR_BOOST_ITEM_LEVELS" "$CONF"
 set_conf "Custom.CraftedGearBoostMaxRequiredLevel" "$CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL" "$CONF"
+# AuctionHouseBot: master seller switch + master/per-faction buyer switches. The
+# core gates the buyer on both the master flag and the per-faction flag, so set
+# all three faction buyer flags together. Seller faction item-amount ratios keep
+# their conf.dist defaults (100 each) so every auction house gets stocked.
+set_conf "AuctionHouseBot.Seller.Enabled"         "$AHBOT_SELLER" "$CONF"
+set_conf "AuctionHouseBot.Buyer.Enabled"          "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Alliance.Enabled" "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Horde.Enabled"    "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Neutral.Enabled"  "$AHBOT_BUYER"  "$CONF"
 set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"          "$CONF"
 set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
 set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"
