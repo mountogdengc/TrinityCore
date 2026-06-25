@@ -211,6 +211,8 @@ enum WorldBoolConfigs : uint32
     CONFIG_CUSTOM_BOT_AUTO_REVIVE,
     // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md)
     CONFIG_CUSTOM_CRAFTED_GEAR_BOOST,
+    // Custom: food/drink restoration floor (see CHANGELOG-custom.md)
+    CONFIG_CUSTOM_FOOD_DRINK_RESTORE,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -242,6 +244,8 @@ enum WorldFloatConfigs : uint32
     CONFIG_MAX_VISIBILITY_DISTANCE_INSTANCE,
     CONFIG_MAX_VISIBILITY_DISTANCE_BATTLEGROUND,
     CONFIG_MAX_VISIBILITY_DISTANCE_ARENA,
+    // Custom: food/drink restoration floor, % of max health/mana per 5s (see CHANGELOG-custom.md)
+    CONFIG_CUSTOM_FOOD_DRINK_RESTORE_PCT_PER_5SEC,
     FLOAT_CONFIG_VALUE_COUNT
 };
 

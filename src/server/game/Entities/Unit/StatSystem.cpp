@@ -891,7 +891,35 @@ void Player::UpdatePowerRegen(Powers power)
         pct_modifier *= sWorld->getRate(*PowerRegenInfo[AsUnderlyingType(power)]); // Config rate
 
     pct_modifier                *= GetTotalAuraMultiplierByMiscValue(SPELL_AURA_MOD_POWER_REGEN_PERCENT, AsUnderlyingType(power));
-    flat_modifier               += GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_POWER_REGEN, AsUnderlyingType(power)) / 5.f;
+
+    // Custom: classic-style drink restores power via SPELL_AURA_MOD_POWER_REGEN flat values (per 5s, hence
+    // /5 for the per-second regen field) that are negligible against this fork's retail-accurate mana pools.
+    // Floor the drink contribution at a configurable % of max power per 5s. Only genuine drink auras are
+    // floored (detected via GetSpellSpecific), leaving other MOD_POWER_REGEN sources untouched.
+    // See CHANGELOG-custom.md.
+    float drink_regen = GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_POWER_REGEN, AsUnderlyingType(power)) / 5.f;
+
+    if (sWorld->getBoolConfig(CONFIG_CUSTOM_FOOD_DRINK_RESTORE))
+    {
+        bool hasDrink = false;
+        for (AuraEffect const* aurEff : GetAuraEffectsByType(SPELL_AURA_MOD_POWER_REGEN))
+        {
+            if (aurEff->GetMiscValue() != AsUnderlyingType(power))
+                continue;
+
+            SpellSpecificType const spec = aurEff->GetSpellInfo()->GetSpellSpecific();
+            if (spec == SPELL_SPECIFIC_DRINK || spec == SPELL_SPECIFIC_FOOD_AND_DRINK)
+                hasDrink = true;
+        }
+
+        if (hasDrink)
+        {
+            float const floor_regen = CalculatePct(float(GetMaxPower(power)), sWorld->getFloatConfig(CONFIG_CUSTOM_FOOD_DRINK_RESTORE_PCT_PER_5SEC)) / 5.f;
+            drink_regen = std::max(drink_regen, floor_regen);
+        }
+    }
+
+    flat_modifier               += drink_regen;
 
     result_regen                *= pct_modifier;
     result_regen_interrupted    *= pct_modifier;
