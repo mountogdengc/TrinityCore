@@ -84,13 +84,38 @@ ordered by `OrderIndex`) and, each combat tick, returns the highest-priority
 ability the bot can actually cast — known (`HasSpell`), off cooldown/GCD
 (`SpellHistory`), affordable (`CalcPowerCost` vs `GetPower`), and in range. The bot
 casts it; melee auto-attack carries the rotation between casts and covers
-specs/levels with no castable ability (`SelectSpell` returns 0). The rules'
-`ConditionType` / `ConditionValueN` columns are intentionally **not** evaluated yet
-— decoding Blizzard's condition opcodes is a follow-on slice. The low-level Hunter/Priest/Warrior
-hotfix data (steps-only, no rules) is consumed by the same path.
+specs/levels with no castable ability (`SelectSpell` returns 0).
 
-Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
-combat loop in `BotMgr::UpdateFollow`. Low-level data (Hunter / Priest / Warrior
+**Condition-aware rotation ("don't-waste-casts").** The engine now evaluates
+per-step conditions so it won't re-cast a DoT that's still active (it refreshes it
+just before it expires) and uses a filler instead:
+- `BotRotation{Policy}` — a pure, unit-tested decision
+  (`ShouldCastForMissingOrExpiringAura`) plus an engine gate that reads
+  `AssistedCombatRule` rows. Fork condition opcodes (e.g.
+  `BOT_COND_TARGET_MISSING_OR_EXPIRING_MY_AURA = 1000`) are interpreted **only for
+  our custom steps** (ID ≥ 1000000); Blizzard's undocumented stock-step opcodes are
+  left **fail-open** (treated as eligible), so max-level rotations never regress.
+- Priest (Initial spec 1452) Shadow Word: Pain is gated so the bot casts **Smite**
+  as filler and refreshes SWP under 3s:
+  `sql/updates/hotfixes/master/2026_06_24_00_hotfixes.sql`
+  (`AssistedCombatRule` table hash `0xC1B4F680`). Hunter/Warrior unchanged.
+- Spec/design: `docs/superpowers/specs/2026-06-24-condition-aware-bot-rotation-design.md`,
+  plan `docs/superpowers/plans/2026-06-24-condition-aware-bot-rotation.md`.
+
+**Headless bots cast *effective* spells now (root-cause fix).** Bots' spell casts
+previously "succeeded" but applied **no** damage/auras to the enemy: the enemy was
+dropped during effect-target selection because the bot's `IsValidAttackTarget` →
+`CanSeeOrDetect` returned false. Root cause: `Player::CanNeverSee` gates on
+`PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME`, which is normally set by the
+client's login init-mover/time-sync handshake — a headless bot has no client, so it
+was never set and the bot could never "see" anything. Fix: set that flag when the
+bot's login completes (see *Code modifications to upstream files* →
+`CharacterHandler.cpp`). This also makes bots see/validate/engage targets on their
+own; the `TRIGGERED_IGNORE_TARGET_CHECK` on the bot's `CastSpell` (`BotMgr`) is now a
+belt-and-suspenders safety net rather than a load-bearing workaround.
+
+Key files: `src/server/scripts/Custom/Bots/BotRotation{,Policy}.{h,cpp}`; wired into
+the combat loop in `BotMgr`. Earlier low-level data (Hunter / Priest / Warrior
 Initial specs), auto-applied by the updater:
 `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql`.
 Deeper docs: *Rotation engine* section of
@@ -225,6 +250,15 @@ useful as a gdb backtrace against the matching binary. Files:
 In-place edits to stock TrinityCore source (track these so an upstream merge
 doesn't silently revert them):
 
+- **`src/server/game/Handlers/CharacterHandler.cpp`** — headless-bot visibility fix.
+  In `WorldSession::LoadBotCharacter`, after `HandlePlayerLogin`, set
+  `PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME` on the loaded bot. A real client
+  gets this flag from its login init-mover/time-sync handshake; a headless bot has no
+  client, so without it `Player::CanNeverSee` returns true forever and the bot can't
+  "see" any object — `IsValidAttackTarget` fails and every enemy-targeted spell effect
+  is silently dropped (casts "succeed" but deal no damage / apply no auras). Setting
+  it makes the bot a first-class member of the server visibility system. See the
+  *Assisted-combat rotation* feature section.
 - **Absorb-vs-creature-scaling fix (PW:Shield & all absorbs while leveling)** —
   upstream computes melee/spell absorbs on the *pre-scaling* damage and only applies
   the creature level-scaling multiplier (`Creature::GetDamageMultiplierForTarget`)
