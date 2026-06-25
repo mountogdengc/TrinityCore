@@ -26,6 +26,7 @@ TEST_CASE("Ranged classes fight at range; melee/hybrids do not", "[BotMovementPo
     REQUIRE(BotMovementPolicy::IsRangedClass(CLASS_PRIEST));
     REQUIRE(BotMovementPolicy::IsRangedClass(CLASS_MAGE));
     REQUIRE(BotMovementPolicy::IsRangedClass(CLASS_WARLOCK));
+    REQUIRE(BotMovementPolicy::IsRangedClass(CLASS_EVOKER));
 
     REQUIRE_FALSE(BotMovementPolicy::IsRangedClass(CLASS_WARRIOR));
     REQUIRE_FALSE(BotMovementPolicy::IsRangedClass(CLASS_ROGUE));
@@ -36,9 +37,13 @@ TEST_CASE("Ranged classes fight at range; melee/hybrids do not", "[BotMovementPo
 
 TEST_CASE("Formation angles are deterministic and distinct for adjacent slots", "[BotMovementPolicy]")
 {
-    REQUIRE(BotMovementPolicy::FormationFollowAngle(2) == BotMovementPolicy::FormationFollowAngle(2));
-    REQUIRE(BotMovementPolicy::FormationChaseAngle(3) == BotMovementPolicy::FormationChaseAngle(3));
+    // anchored geometry: slot 0 is directly behind; slot 1 fans one step right
+    REQUIRE(BotMovementPolicy::FormationFollowAngle(0) == Approx(3.14159265358979f));
+    REQUIRE(BotMovementPolicy::FormationFollowAngle(1) == Approx(3.14159265358979f + 0.45f));
+    REQUIRE(BotMovementPolicy::FormationChaseAngle(0) == Approx(0.0f));
+    REQUIRE(BotMovementPolicy::FormationChaseAngle(1) == Approx(2.0f * 3.14159265358979f / 6.0f));
 
+    // distinct for adjacent slots
     REQUIRE(BotMovementPolicy::FormationFollowAngle(0) != BotMovementPolicy::FormationFollowAngle(1));
     REQUIRE(BotMovementPolicy::FormationFollowAngle(1) != BotMovementPolicy::FormationFollowAngle(2));
     REQUIRE(BotMovementPolicy::FormationChaseAngle(0) != BotMovementPolicy::FormationChaseAngle(1));

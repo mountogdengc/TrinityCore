@@ -9,16 +9,17 @@
 
 namespace BotMovementPolicy
 {
-    // Classes that should fight at range (caster DPS + healer). Everyone else, and
-    // every hybrid for now, is treated as melee.
-    bool IsRangedClass(uint8 cls);
+// Classes that should fight at range (caster DPS + healer). Everyone else, and
+// every hybrid for now, is treated as melee.
+bool IsRangedClass(uint8 cls);
 
-    // Per-bot formation angle in radians, relative to the anchor's orientation
-    // (0 = directly in front, PI = directly behind). Deterministic and distinct for
-    // adjacent slots. Follow fans symmetrically behind the master; chase spreads
-    // evenly around the target.
-    float FormationFollowAngle(uint32 slot);
-    float FormationChaseAngle(uint32 slot);
+// Per-bot formation angle in radians, relative to the anchor's orientation
+// (0 = directly in front, PI = directly behind). Deterministic and distinct for
+// adjacent slots. Follow fans symmetrically behind the master; chase spreads
+// evenly around the target. Chase angles repeat every 6 slots: distinct for
+// slot < 6, then they alias.
+float FormationFollowAngle(uint32 slot);
+float FormationChaseAngle(uint32 slot);
 }
 
 #endif // TRINITYCORE_BOTS_BOTMOVEMENTPOLICY_H
