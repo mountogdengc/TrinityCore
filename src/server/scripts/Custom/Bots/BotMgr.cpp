@@ -8,6 +8,7 @@
 #include "BotMgr.h"
 #include "BotCombatPolicy.h"
 #include "BotDeathPolicy.h"
+#include "BotMovementPolicy.h"
 #include "BotRotation.h"
 #include "CharacterCache.h"
 #include "Chat.h"
@@ -38,6 +39,7 @@ namespace
     constexpr uint32 BOT_FOLLOW_INTERVAL_MS = 500;
     constexpr float  BOT_FOLLOW_DIST        = 2.0f;
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
+    constexpr float  BOT_RANGED_DIST        = 25.0f; // ranged bots hold at this range and cast (no melee)
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
     constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
     constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
@@ -355,13 +357,31 @@ void BotMgr::UpdateFollow()
             // Without an active chase the bot sits meleeing in place and stops
             // swinging the instant the target steps out of its 120-degree arc.
             MotionMaster* mm = bot->GetMotionMaster();
-            if (bot->GetVictim() != target)
+            ChaseAngle const chaseAngle(BotMovementPolicy::FormationChaseAngle(entry.formationSlot));
+            if (BotMovementPolicy::IsRangedClass(bot->GetClass()))
             {
-                bot->Attack(target, true);
-                mm->MoveChase(target);
+                // Ranged: hold at casting range and never melee -- the rotation does the
+                // damage. Re-issue the chase on a target switch or if the generator was
+                // dropped (teleport / idle-follow). No Attack() => no running to contact.
+                if (entry.combatTarget != target->GetGUID() || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+                {
+                    bot->AttackStop();   // defensive: ensure no stale melee auto-attack
+                    mm->MoveChase(target, ChaseRange(BOT_RANGED_DIST), chaseAngle);
+                    entry.combatTarget = target->GetGUID();
+                }
             }
-            else if (mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
-                mm->MoveChase(target);
+            else
+            {
+                // Melee: close to contact and auto-attack, fanned by formation angle.
+                if (bot->GetVictim() != target)
+                {
+                    bot->Attack(target, true);
+                    mm->MoveChase(target, {}, chaseAngle);
+                    entry.combatTarget = target->GetGUID();
+                }
+                else if (mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+                    mm->MoveChase(target, {}, chaseAngle);
+            }
 
             // M4: data-driven rotation -- cast the top castable Assisted Combat ability at
             // the victim. Melee auto-attack (set up above) fills the gaps between casts and
@@ -390,9 +410,12 @@ void BotMgr::UpdateFollow()
         }
 
         // Close enough => chase on foot. Re-issued only when the current generator
-        // isn't a follow (initial, post-teleport, post-combat).
+        // isn't a follow (initial, post-teleport, post-combat). Clear the stored combat
+        // target so the next engagement re-issues its chase.
+        entry.combatTarget = ObjectGuid::Empty;
         if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-            bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST);
+            bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST,
+                ChaseAngle(BotMovementPolicy::FormationFollowAngle(entry.formationSlot)));
     }
 }
 
