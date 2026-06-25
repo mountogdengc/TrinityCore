@@ -1130,6 +1130,41 @@ Custom.BotAutoRevive = 0
 Custom.BotAutoReviveDelayMs = 5000
 
 ###############################################################################
+# CUSTOM: CRAFTED GEAR BOOST (fork addition)
+#   See CHANGELOG-custom.md
+#
+#    Custom.CraftedGearBoost
+#        Description: Give crafted (tradeskill) equippable gear a flat item-level
+#                     bump at craft time so professions stay worthwhile while
+#                     leveling (crafted gear otherwise loses to vendor/quest
+#                     greens). Only applies to weapons/armor whose required level
+#                     is <= Custom.CraftedGearBoostMaxRequiredLevel. Uses the
+#                     retail item-level-upgrade bonus lists, so the boost renders
+#                     correctly on the client with no custom data.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled, vanilla)
+
+Custom.CraftedGearBoost = 1
+
+#
+#    Custom.CraftedGearBoostItemLevels
+#        Description: How many item levels to add to eligible crafted gear. If the
+#                     exact delta has no upgrade bonus list, the largest available
+#                     delta below it is used.
+#        Default:     7
+
+Custom.CraftedGearBoostItemLevels = 7
+
+#
+#    Custom.CraftedGearBoostMaxRequiredLevel
+#        Description: Only crafted gear with a required level at or below this gets
+#                     boosted (keeps the boost to "low levels only"; end-game
+#                     crafting is already competitive). 0 disables the boost.
+#        Default:     60
+
+Custom.CraftedGearBoostMaxRequiredLevel = 60
+
+###############################################################################
 
 #
 #    Instance.UnloadDelay

@@ -626,6 +626,8 @@ void World::LoadConfigSettings(bool reload)
         { .Name = "Custom.AllowChatWhileDead"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_ALLOW_CHAT_WHILE_DEAD },
         { .Name = "Custom.PlayerAutoReviveAtCorpse"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_AT_CORPSE },
         { .Name = "Custom.BotAutoRevive"sv, .DefaultValue = false, .Index = CONFIG_CUSTOM_BOT_AUTO_REVIVE },
+        // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md). On by default.
+        { .Name = "Custom.CraftedGearBoost"sv, .DefaultValue = true, .Index = CONFIG_CUSTOM_CRAFTED_GEAR_BOOST },
         { .Name = "CastUnstuck"sv, .DefaultValue = true, .Index = CONFIG_CAST_UNSTUCK },
         { .Name = "GM.AllowInvite"sv, .DefaultValue = false, .Index = CONFIG_ALLOW_GM_GROUP },
         { .Name = "GM.LowerSecurity"sv, .DefaultValue = false, .Index = CONFIG_GM_LOWER_SECURITY },
@@ -831,6 +833,9 @@ void World::LoadConfigSettings(bool reload)
         // Custom: Death QoL (see docs/superpowers/specs/2026-06-20-death-qol-design.md)
         { .Name = "Custom.PlayerAutoReviveDelayMs"sv, .DefaultValue = 5000, .Index = CONFIG_CUSTOM_PLAYER_AUTO_REVIVE_DELAY_MS, .Min = 0 },
         { .Name = "Custom.BotAutoReviveDelayMs"sv, .DefaultValue = 5000, .Index = CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS, .Min = 0 },
+        // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md)
+        { .Name = "Custom.CraftedGearBoostItemLevels"sv, .DefaultValue = 7, .Index = CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_ITEM_LEVELS, .Min = 0 },
+        { .Name = "Custom.CraftedGearBoostMaxRequiredLevel"sv, .DefaultValue = 60, .Index = CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL, .Min = 0 },
         { .Name = "Battleground.ReportAFK"sv, .DefaultValue = 3, .Index = CONFIG_BATTLEGROUND_REPORT_AFK, .Min = 1, .Max = 9 },
         { .Name = "Battleground.InvitationType"sv, .DefaultValue = 0, .Index = CONFIG_BATTLEGROUND_INVITATION_TYPE },
         { .Name = "Battleground.PrematureFinishTimer"sv, .DefaultValue = 5 * MINUTE * IN_MILLISECONDS, .Index = CONFIG_BATTLEGROUND_PREMATURE_FINISH_TIMER },

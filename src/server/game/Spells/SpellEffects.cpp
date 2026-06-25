@@ -48,6 +48,7 @@
 #include "Guild.h"
 #include "InstanceScript.h"
 #include "Item.h"
+#include "ItemBonusMgr.h"
 #include "Language.h"
 #include "Log.h"
 #include "Loot.h"
@@ -1437,10 +1438,41 @@ void Spell::DoCreateItem(uint32 itemId, ItemContext context /*= ItemContext::NON
         }
     }
 
+    // Custom: low-level crafted-gear item-level boost (see CHANGELOG-custom.md).
+    // Crafted equippable gear tends to lose to vendor/quest greens while leveling;
+    // give it a flat item-level bump so professions stay worthwhile. We reuse the
+    // client-known item-level-delta bonus lists (the retail upgrade system) so the
+    // boost renders correctly on the client with no custom DB2/hotfix data.
+    std::vector<int32> craftedBonusListIDs;
+    std::vector<int32> const* effectiveBonusListIDs = bonusListIDs;
+    if (sWorld->getBoolConfig(CONFIG_CUSTOM_CRAFTED_GEAR_BOOST) && m_spellInfo->HasAttribute(SPELL_ATTR0_IS_TRADESKILL))
+    {
+        if (ItemTemplate const* boostProto = sObjectMgr->GetItemTemplate(newitemid))
+        {
+            bool const equippableGear = boostProto->GetInventoryType() != INVTYPE_NON_EQUIP && (boostProto->IsWeapon() || boostProto->IsArmor());
+            if (equippableGear && boostProto->GetBaseRequiredLevel() <= int32(sWorld->getIntConfig(CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL)))
+            {
+                // Resolve the largest available +ilvl delta <= the configured boost
+                // (not every delta exists in ItemBonusListLevelDelta.db2).
+                uint32 boostBonusList = 0;
+                for (int32 delta = int32(sWorld->getIntConfig(CONFIG_CUSTOM_CRAFTED_GEAR_BOOST_ITEM_LEVELS)); delta >= 1 && !boostBonusList; --delta)
+                    boostBonusList = ItemBonusMgr::GetItemBonusListForItemLevelDelta(int16(delta));
+
+                if (boostBonusList)
+                {
+                    if (bonusListIDs)
+                        craftedBonusListIDs = *bonusListIDs;
+                    craftedBonusListIDs.push_back(int32(boostBonusList));
+                    effectiveBonusListIDs = &craftedBonusListIDs;
+                }
+            }
+        }
+    }
+
     if (num_to_add)
     {
         // create the new item and store it
-        if (Item* pItem = player->StoreNewItem(dest, newitemid, true, GenerateItemRandomBonusListId(newitemid), GuidSet(), context, bonusListIDs))
+        if (Item* pItem = player->StoreNewItem(dest, newitemid, true, GenerateItemRandomBonusListId(newitemid), GuidSet(), context, effectiveBonusListIDs))
         {
             // set the "Crafted by ..." property of the item
             if (pItem->GetTemplate()->HasSignature())
