@@ -69,6 +69,13 @@ COLLECTIONS_GRANT_ALL_TOYS="${TC_COLLECTIONS_GRANT_ALL_TOYS:-0}"
 COLLECTIONS_GRANT_ALL_HEIRLOOMS="${TC_COLLECTIONS_GRANT_ALL_HEIRLOOMS:-0}"
 COLLECTIONS_GRANT_ALL_APPEARANCES="${TC_COLLECTIONS_GRANT_ALL_APPEARANCES:-0}"
 COLLECTIONS_GRANT_ALL_WARBAND_SCENES="${TC_COLLECTIONS_GRANT_ALL_WARBAND_SCENES:-0}"
+# Custom: cross-faction play (Horde<->Alliance can group, chat in channels, share
+# calendars/guilds, and trade). Default ON for this PvE-focused fork; set 0 to
+# restore vanilla same-faction-only interaction. One switch drives the whole set.
+# Note: AllowTwoSide.Interaction.Auction is intentionally left at the core default
+# (its docs warn that toggling it in production strands already-placed faction-AH
+# auctions), so it is not wired here.
+ALLOW_CROSS_FACTION="${TC_ALLOW_CROSS_FACTION:-1}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
@@ -136,6 +143,11 @@ set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"      
 set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
 set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"
 set_conf "Collections.GrantAllWarbandScenes" "$COLLECTIONS_GRANT_ALL_WARBAND_SCENES" "$CONF"
+set_conf "AllowTwoSide.Interaction.Calendar" "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Channel"  "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Group"    "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Guild"    "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Trade"                "$ALLOW_CROSS_FACTION" "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.
