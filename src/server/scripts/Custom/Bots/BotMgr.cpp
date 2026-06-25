@@ -137,6 +137,7 @@ bool BotMgr::AddBot(std::string const& characterName, ObjectGuid master, std::st
         0u /*recruiter*/, false);
 
     _bots[key] = BotEntry{ session, master };
+    _bots[key].formationSlot = _nextFormationSlot++;
 
     // Reuse the real async login machinery (LoginQueryHolder -> HandlePlayerLogin).
     // The holder callback fires from this session's Update() in BotMgr::Update().
