@@ -7,10 +7,11 @@
  * (from the AssistedCombat* DB2 stores) and returns the highest-priority ability
  * the bot can actually cast right now.
  *
- * First pass = "castability-priority": we honor the priority ORDER but gate each
- * candidate on real cast mechanics (known + off cooldown/GCD + affordable + in
- * range). The rules' ConditionType / ConditionValueN columns are intentionally
- * NOT evaluated yet -- decoding Blizzard's condition opcodes is a follow-on slice.
+ * We honor the priority ORDER and gate each candidate on real cast mechanics
+ * (known + off cooldown/GCD + affordable + in range) and on per-step conditions.
+ * Conditions come from AssistedCombatRule rows: for our CUSTOM steps
+ * (ID >= 1000000) we evaluate fork opcodes (see BotRotationPolicy); Blizzard's
+ * stock-step opcodes are undocumented and left fail-open (treated as eligible).
  */
 
 #ifndef TRINITYCORE_BOTS_BOTROTATION_H

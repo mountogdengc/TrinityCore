@@ -22,6 +22,7 @@
 #include "Player.h"
 #include "Realm/ClientBuildInfo.h"
 #include "SharedDefines.h"
+#include "SpellDefines.h"
 #include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
@@ -361,15 +362,16 @@ void BotMgr::UpdateFollow()
             else if (mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
                 mm->MoveChase(target);
 
-            // M4: data-driven rotation -- cast the top castable Assisted Combat
-            // ability at the victim. The melee auto-attack set up above carries the
-            // rotation between casts and covers specs/levels with no castable
-            // ability (SelectSpell returns 0, so we just keep meleeing).
-            uint32 const spellId = BotRotation::SelectSpell(bot, target);
-            TC_LOG_DEBUG("bots", "Bot '{}' rotation: spec {}, spell {}.",
-                bot->GetName(), int32(bot->GetPrimarySpecialization()), spellId);
-            if (spellId)
-                bot->CastSpell(target, spellId);
+            // M4: data-driven rotation -- cast the top castable Assisted Combat ability at
+            // the victim. Melee auto-attack (set up above) fills the gaps between casts and
+            // covers specs/levels with no castable ability (SelectSpell returns 0).
+            // TRIGGERED_IGNORE_TARGET_CHECK is a safety net: the headless-bot visibility fix
+            // (PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME, set on bot login) makes the
+            // bot's own IsValidAttackTarget valid now, and BotMgr already validated `target`
+            // via the master in SelectAssistTarget -- so a stale bot-side gate never drops the
+            // cast. (Could be dropped to a plain CastSpell as a future simplification.)
+            if (uint32 const spellId = BotRotation::SelectSpell(bot, target))
+                bot->CastSpell(target, spellId, TRIGGERED_IGNORE_TARGET_CHECK);
             continue;
         }
 

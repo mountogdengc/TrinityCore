@@ -59,6 +59,13 @@ CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL="${TC_CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL:-60}"
 # values aren't negligible against this fork's retail-accurate health/mana pools.
 FOOD_DRINK_RESTORE="${TC_FOOD_DRINK_RESTORE:-1}"
 FOOD_DRINK_RESTORE_PCT_PER_5SEC="${TC_FOOD_DRINK_RESTORE_PCT_PER_5SEC:-12.0}"
+# AuctionHouseBot ("auction house simulator"): populate the AH with listings
+# (seller) and buy player listings (buyer) so the economy feels alive on a
+# solo/bot server. Default ON; set TC_AHBOT_SELLER / TC_AHBOT_BUYER to 0 to
+# disable a side. Pure config (no rebuild); the seller/buyer faction ratios keep
+# their conf.dist defaults so all auction houses get populated.
+AHBOT_SELLER="${TC_AHBOT_SELLER:-1}"
+AHBOT_BUYER="${TC_AHBOT_BUYER:-1}"
 # Account-wide collection grants (toys/heirlooms/appearances/warband scenes) default
 # ON in the core, but granting ALL appearances on every login builds an enormous
 # collection update that crashes a real client's login. Off by default here until
@@ -67,6 +74,13 @@ COLLECTIONS_GRANT_ALL_TOYS="${TC_COLLECTIONS_GRANT_ALL_TOYS:-0}"
 COLLECTIONS_GRANT_ALL_HEIRLOOMS="${TC_COLLECTIONS_GRANT_ALL_HEIRLOOMS:-0}"
 COLLECTIONS_GRANT_ALL_APPEARANCES="${TC_COLLECTIONS_GRANT_ALL_APPEARANCES:-0}"
 COLLECTIONS_GRANT_ALL_WARBAND_SCENES="${TC_COLLECTIONS_GRANT_ALL_WARBAND_SCENES:-0}"
+# Custom: cross-faction play (Horde<->Alliance can group, chat in channels, share
+# calendars/guilds, and trade). Default ON for this PvE-focused fork; set 0 to
+# restore vanilla same-faction-only interaction. One switch drives the whole set.
+# Note: AllowTwoSide.Interaction.Auction is intentionally left at the core default
+# (its docs warn that toggling it in production strands already-placed faction-AH
+# auctions), so it is not wired here.
+ALLOW_CROSS_FACTION="${TC_ALLOW_CROSS_FACTION:-1}"
 
 mkdir -p "$LOGS_DIR" "$DATA_DIR"
 
@@ -123,10 +137,24 @@ set_conf "Custom.FoodDrinkRestore"                "$FOOD_DRINK_RESTORE"         
 set_conf "Custom.FoodDrinkRestorePctPer5Sec"      "$FOOD_DRINK_RESTORE_PCT_PER_5SEC" "$CONF"
 set_conf "Custom.CraftedGearBoostItemLevels"      "$CRAFTED_GEAR_BOOST_ITEM_LEVELS" "$CONF"
 set_conf "Custom.CraftedGearBoostMaxRequiredLevel" "$CRAFTED_GEAR_BOOST_MAX_REQ_LEVEL" "$CONF"
+# AuctionHouseBot: master seller switch + master/per-faction buyer switches. The
+# core gates the buyer on both the master flag and the per-faction flag, so set
+# all three faction buyer flags together. Seller faction item-amount ratios keep
+# their conf.dist defaults (100 each) so every auction house gets stocked.
+set_conf "AuctionHouseBot.Seller.Enabled"         "$AHBOT_SELLER" "$CONF"
+set_conf "AuctionHouseBot.Buyer.Enabled"          "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Alliance.Enabled" "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Horde.Enabled"    "$AHBOT_BUYER"  "$CONF"
+set_conf "AuctionHouseBot.Buyer.Neutral.Enabled"  "$AHBOT_BUYER"  "$CONF"
 set_conf "Collections.GrantAllToys"          "$COLLECTIONS_GRANT_ALL_TOYS"          "$CONF"
 set_conf "Collections.GrantAllHeirlooms"     "$COLLECTIONS_GRANT_ALL_HEIRLOOMS"     "$CONF"
 set_conf "Collections.GrantAllAppearances"   "$COLLECTIONS_GRANT_ALL_APPEARANCES"   "$CONF"
 set_conf "Collections.GrantAllWarbandScenes" "$COLLECTIONS_GRANT_ALL_WARBAND_SCENES" "$CONF"
+set_conf "AllowTwoSide.Interaction.Calendar" "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Channel"  "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Group"    "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Interaction.Guild"    "$ALLOW_CROSS_FACTION" "$CONF"
+set_conf "AllowTwoSide.Trade"                "$ALLOW_CROSS_FACTION" "$CONF"
 
 # Warn loudly if client data is missing -- the worldserver cannot start without
 # extracted maps. See scripts/extract-client-data.sh.

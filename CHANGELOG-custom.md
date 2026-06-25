@@ -84,13 +84,38 @@ ordered by `OrderIndex`) and, each combat tick, returns the highest-priority
 ability the bot can actually cast — known (`HasSpell`), off cooldown/GCD
 (`SpellHistory`), affordable (`CalcPowerCost` vs `GetPower`), and in range. The bot
 casts it; melee auto-attack carries the rotation between casts and covers
-specs/levels with no castable ability (`SelectSpell` returns 0). The rules'
-`ConditionType` / `ConditionValueN` columns are intentionally **not** evaluated yet
-— decoding Blizzard's condition opcodes is a follow-on slice. The low-level Hunter/Priest/Warrior
-hotfix data (steps-only, no rules) is consumed by the same path.
+specs/levels with no castable ability (`SelectSpell` returns 0).
 
-Key files: `src/server/scripts/Custom/Bots/BotRotation.{h,cpp}`; wired into the
-combat loop in `BotMgr::UpdateFollow`. Low-level data (Hunter / Priest / Warrior
+**Condition-aware rotation ("don't-waste-casts").** The engine now evaluates
+per-step conditions so it won't re-cast a DoT that's still active (it refreshes it
+just before it expires) and uses a filler instead:
+- `BotRotation{Policy}` — a pure, unit-tested decision
+  (`ShouldCastForMissingOrExpiringAura`) plus an engine gate that reads
+  `AssistedCombatRule` rows. Fork condition opcodes (e.g.
+  `BOT_COND_TARGET_MISSING_OR_EXPIRING_MY_AURA = 1000`) are interpreted **only for
+  our custom steps** (ID ≥ 1000000); Blizzard's undocumented stock-step opcodes are
+  left **fail-open** (treated as eligible), so max-level rotations never regress.
+- Priest (Initial spec 1452) Shadow Word: Pain is gated so the bot casts **Smite**
+  as filler and refreshes SWP under 3s:
+  `sql/updates/hotfixes/master/2026_06_24_00_hotfixes.sql`
+  (`AssistedCombatRule` table hash `0xC1B4F680`). Hunter/Warrior unchanged.
+- Spec/design: `docs/superpowers/specs/2026-06-24-condition-aware-bot-rotation-design.md`,
+  plan `docs/superpowers/plans/2026-06-24-condition-aware-bot-rotation.md`.
+
+**Headless bots cast *effective* spells now (root-cause fix).** Bots' spell casts
+previously "succeeded" but applied **no** damage/auras to the enemy: the enemy was
+dropped during effect-target selection because the bot's `IsValidAttackTarget` →
+`CanSeeOrDetect` returned false. Root cause: `Player::CanNeverSee` gates on
+`PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME`, which is normally set by the
+client's login init-mover/time-sync handshake — a headless bot has no client, so it
+was never set and the bot could never "see" anything. Fix: set that flag when the
+bot's login completes (see *Code modifications to upstream files* →
+`CharacterHandler.cpp`). This also makes bots see/validate/engage targets on their
+own; the `TRIGGERED_IGNORE_TARGET_CHECK` on the bot's `CastSpell` (`BotMgr`) is now a
+belt-and-suspenders safety net rather than a load-bearing workaround.
+
+Key files: `src/server/scripts/Custom/Bots/BotRotation{,Policy}.{h,cpp}`; wired into
+the combat loop in `BotMgr`. Earlier low-level data (Hunter / Priest / Warrior
 Initial specs), auto-applied by the updater:
 `sql/updates/hotfixes/master/2026_06_21_00_hotfixes.sql`.
 Deeper docs: *Rotation engine* section of
@@ -130,6 +155,24 @@ poles are excluded (Fishing is handled by the secondary-professions script).
 
 Key files: `src/server/scripts/Custom/custom_weapon_skills.cpp`
 (registered via `custom_script_loader.cpp`).
+
+## Cross-faction play (two-side interaction)
+
+Status: **done**
+
+Lets Horde and Alliance **group, chat in channels, share calendars/guilds, and
+trade** with each other (this fork is PvE-only, so the usual faction separation
+isn't wanted). Driven by a single entrypoint env flag `TC_ALLOW_CROSS_FACTION`
+(default **1**), which sets the core's `AllowTwoSide.Interaction.{Calendar,Channel,
+Group,Guild}` and `AllowTwoSide.Trade` configs. Config-only — applies on a
+worldserver **restart, no rebuild**. Set `TC_ALLOW_CROSS_FACTION=0` to restore
+vanilla same-faction-only behavior.
+
+`AllowTwoSide.Interaction.Auction` is intentionally **not** wired (kept at the core
+default 1): its own config docs warn that flipping it in production strands
+already-placed faction-AH auctions.
+
+Key files: `docker/worldserver/entrypoint.sh` (env flag + `set_conf` calls).
 
 ## Tirisfal recruitment (Darnell escort)
 
@@ -203,6 +246,43 @@ Config keys (`World.{h,cpp}`, `worldserver.conf.dist`,
 
 Key files: `src/server/game/Spells/SpellEffects.cpp` (`Spell::DoCreateItem` hook).
 Config: `World.{h,cpp}`, `worldserver.conf.dist`, `docker/worldserver/entrypoint.sh`.
+
+## Auction house simulator (AuctionHouseBot)
+
+Status: **enabled by default**
+
+Turns on upstream's **AuctionHouseBot** (`src/server/game/AuctionHouseBot/`, already
+compiled into the core) so the auction house feels alive on a solo/bot server:
+the **seller** populates the AH with listings and the **buyer** purchases player
+listings (so you can actually sell things). This is **config only — no rebuild**;
+`sAuctionBot->Initialize()`/`Update()` already run unconditionally, gated purely on
+the config flags.
+
+Enabled via the worldserver entrypoint (restart to apply), default ON, env-toggleable:
+
+- `AuctionHouseBot.Seller.Enabled = 1` — env `TC_AHBOT_SELLER` (default `1`).
+- `AuctionHouseBot.Buyer.Enabled = 1` + the three per-faction
+  `AuctionHouseBot.Buyer.{Alliance,Horde,Neutral}.Enabled = 1` (the core gates the
+  buyer on both the master flag and the per-faction flag) — env `TC_AHBOT_BUYER`
+  (default `1`); set to `0` for a populate-only AH that doesn't buy your listings.
+
+Notes:
+- The seller's faction item-amount ratios keep their `conf.dist` defaults (100 each),
+  so all auction houses get stocked. No dedicated bot account is needed — with
+  `AuctionHouseBot.Account = 0` the seller creates ownerless ("system") auctions,
+  which the buyer recognises via `IsBotChar()` and won't re-buy.
+- Volume/prices/quality mix are tunable through the large `AuctionHouseBot.*` block
+  in `worldserver.conf.dist` (e.g. `AuctionHouseBot.Items.Amount.{White,Green,Blue,Purple}`).
+  `.ahbot` GM commands inspect/rebuild the populated AH.
+- ⚠️ This fork runs `AllowTwoSide.Interaction.Auction = 1`; the core notes
+  faction-specific AHBot settings "might not work as expected" with cross-faction
+  auctions on. Worth an in-game check that listings show up in the retail 12.0.5
+  client's AH; if a faction AH looks empty, tune the per-faction ratios. AHBot does
+  use the modern commodity auction API (`AuctionPosting` / `IsCommodity`), so it is
+  built for the retail AH, not legacy-only.
+
+Config: `docker/worldserver/entrypoint.sh` (the `AHBOT_*` env + `set_conf` lines);
+all knobs live in the upstream `AuctionHouseBot.*` block of `worldserver.conf.dist`.
 
 ## Retail base-Stamina fix (player_classlevelstats)
 
@@ -309,6 +389,15 @@ useful as a gdb backtrace against the matching binary. Files:
 In-place edits to stock TrinityCore source (track these so an upstream merge
 doesn't silently revert them):
 
+- **`src/server/game/Handlers/CharacterHandler.cpp`** — headless-bot visibility fix.
+  In `WorldSession::LoadBotCharacter`, after `HandlePlayerLogin`, set
+  `PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME` on the loaded bot. A real client
+  gets this flag from its login init-mover/time-sync handshake; a headless bot has no
+  client, so without it `Player::CanNeverSee` returns true forever and the bot can't
+  "see" any object — `IsValidAttackTarget` fails and every enemy-targeted spell effect
+  is silently dropped (casts "succeed" but deal no damage / apply no auras). Setting
+  it makes the bot a first-class member of the server visibility system. See the
+  *Assisted-combat rotation* feature section.
 - **Absorb-vs-creature-scaling fix (PW:Shield & all absorbs while leveling)** —
   upstream computes melee/spell absorbs on the *pre-scaling* damage and only applies
   the creature level-scaling multiplier (`Creature::GetDamageMultiplierForTarget`)
