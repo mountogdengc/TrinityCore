@@ -122,6 +122,34 @@ Deeper docs: *Rotation engine* section of
 `src/server/scripts/Custom/Bots/ROADMAP.md` and
 `docs/superpowers/specs/2026-06-21-bot-lowlevel-rotations-design.md`.
 
+## Player-bot positioning — ranged hold-at-range + formation spread
+
+Status: **first pass — class-based ranged positioning + per-bot fan-out**
+
+Two movement fixes now that bots cast effective spells:
+
+- **Ranged-class bots hold at casting range instead of running into melee.**
+  `BotMovementPolicy::IsRangedClass` (Hunter / Priest / Mage / Warlock / Evoker)
+  picks a ranged stance: the bot chases to `BOT_RANGED_DIST` (~25 yd) via
+  `MoveChase(target, ChaseRange(25), …)` and fights via the rotation, never closing
+  to melee. ⚠️ It still calls `Attack(target, **false**)` — `ChaseMovementGenerator`
+  halts unless `GetVictim()==target` (`HasLostTarget`), and `GetVictim()` is only set
+  by `Attack()`; the `false` sets the victim **without** scheduling melee swings, and
+  `ChaseRange` (not `Attack`) is what keeps the bot at range. Melee classes keep the
+  prior close-and-swing behaviour.
+- **Bots fan out instead of stacking.** Each bot gets a `BotEntry::formationSlot`
+  at spawn; `BotMovementPolicy::FormationFollowAngle/FormationChaseAngle` turn it into
+  distinct angles fed to `MoveFollow` (arc behind the master) and `MoveChase` (spread
+  around the target), so bots are individually targetable.
+
+Pure, unit-tested policy: `src/server/scripts/Custom/Bots/BotMovementPolicy.{h,cpp}`
+(`tests/game/BotMovementPolicy.cpp`); wired into the combat/follow loop in
+`BotMgr::UpdateFollow`. Out of scope (follow-ups in
+`docs/bot-ux-future-milestones.md`): role-aware formation shaping, ranged
+auto-attack/wand between casts, kiting, Hunter pets, bot gear, formation presets/UI.
+Spec/plan: `docs/superpowers/specs/2026-06-25-bot-ranged-positioning-formation-design.md`,
+`docs/superpowers/plans/2026-06-25-bot-ranged-positioning-formation.md`.
+
 ## Custom secondary professions
 
 Status: **done**

@@ -62,6 +62,8 @@ private:
         uint32        holdTimer = 0;         // M3: ms left to linger after a fight before re-following
         uint32        deadTimer = 0;         // M4: ms the bot has been dead (drives auto-revive)
         uint32        staleCombatTimer = 0;  // M4: ms the current victim has looked invalid (kept until BOT_STALE_COMBAT_MS)
+        uint8         formationSlot = 0;     // per-bot index -> distinct follow/chase angle (anti-stacking)
+        ObjectGuid    combatTarget;          // current chase target; drives re-issue of MoveChase on a switch
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -80,6 +82,7 @@ private:
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;
     uint32 _followTimer = 0;
+    uint8  _nextFormationSlot = 0;   // hands out BotEntry::formationSlot on AddBot
 };
 
 #define sBotMgr BotMgr::instance()
