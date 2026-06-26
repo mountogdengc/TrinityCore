@@ -378,8 +378,11 @@ void BotMgr::UpdateFollow()
 
                 // Ranged auto-attack: keep Auto Shot / wand Shoot running alongside the
                 // rotation (it loops itself on the RANGED_ATTACK timer once started). Scan
-                // once for this bot's autorepeat spell and cache it. Start it when not
-                // already repeating, or re-point it after a target switch.
+                // once for this bot's autorepeat spell and cache it (one-shot: a wand
+                // equipped mid-session won't weave until the bot is re-added). Start it when
+                // not already repeating, or re-point it after a target switch. Note a
+                // rotation generic-spell cast interrupts a wand's Shoot (but not Auto Shot),
+                // so for wand casters this simply restarts it on the next tick.
                 if (!entry.rangedAutoChecked)
                 {
                     entry.rangedAutoSpellId = FindRangedAutoAttackSpell(bot);
