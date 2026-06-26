@@ -982,6 +982,8 @@ class TC_GAME_API WorldSession
         ~WorldSession();
 
         bool PlayerLoading() const { return !m_playerLoading.IsEmpty(); }
+        bool IsBot() const { return _isBot; }
+        void SetBot() { _isBot = true; }                    // headless player-bot: socketless by design
         bool PlayerLogout() const { return m_playerLogout; }
         bool PlayerLogoutWithSave() const { return m_playerLogout && m_playerSave; }
         bool PlayerRecentlyLoggedOut() const { return m_playerRecentlyLogout; }
@@ -2010,6 +2012,7 @@ class TC_GAME_API WorldSession
 
         time_t _logoutTime;
         bool m_inQueue;                                     // session wait in auth.queue
+        bool _isBot = false;                                // headless player-bot session (null socket by design)
         ObjectGuid m_playerLoading;                         // code processed in LoginPlayer
         bool m_playerLogout;                                // code processed in LogoutPlayer
         bool m_playerRecentlyLogout;
