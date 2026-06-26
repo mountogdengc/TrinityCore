@@ -24,6 +24,8 @@
 #include "Realm/ClientBuildInfo.h"
 #include "SharedDefines.h"
 #include "SpellDefines.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
@@ -419,6 +421,26 @@ void BotMgr::UpdateFollow()
             bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST,
                 ChaseAngle(BotMovementPolicy::FormationFollowAngle(entry.formationSlot)));
     }
+}
+
+uint32 BotMgr::FindRangedAutoAttackSpell(Player* bot)
+{
+    // No usable bow/gun/wand in the ranged slot -> nothing to auto-attack with. This is
+    // exactly the caster-without-a-wand no-op (we never hand out wands).
+    if (!bot->GetWeaponForAttack(RANGED_ATTACK, /*useable*/ true))
+        return 0;
+
+    Difficulty const difficulty = bot->GetMap()->GetDifficultyID();
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (playerSpell.state == PLAYERSPELL_REMOVED || !playerSpell.active || playerSpell.disabled)
+            continue;
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId, difficulty);
+        if (spellInfo && spellInfo->IsAutoRepeatRangedSpell())
+            return spellId;   // Auto Shot (Hunter) / Shoot (wand caster)
+    }
+    return 0;
 }
 
 Unit* BotMgr::SelectAssistTarget(Player* bot, Player* master)

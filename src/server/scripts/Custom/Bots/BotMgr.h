@@ -64,6 +64,8 @@ private:
         uint32        staleCombatTimer = 0;  // M4: ms the current victim has looked invalid (kept until BOT_STALE_COMBAT_MS)
         uint8         formationSlot = 0;     // per-bot index -> distinct follow/chase angle (anti-stacking)
         ObjectGuid    combatTarget;          // current chase target; drives re-issue of MoveChase on a switch
+        uint32        rangedAutoSpellId = 0; // cached autorepeat ranged spell (Auto Shot / wand Shoot); 0 = none
+        bool          rangedAutoChecked = false; // true once we've scanned this bot's spells for the above
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -78,6 +80,10 @@ private:
     // combat (assist), else whatever is attacking the bot (defend self). Returns
     // nullptr when there's nothing to fight.
     Unit* SelectAssistTarget(Player* bot, Player* master);
+
+    // Find this bot's autorepeat ranged spell (Auto Shot for a Hunter, wand Shoot for a
+    // wand-equipped caster), or 0 if it has no usable ranged weapon / no such spell.
+    uint32 FindRangedAutoAttackSpell(Player* bot);
 
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;
