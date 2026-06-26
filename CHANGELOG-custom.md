@@ -160,6 +160,29 @@ on the `RANGED_ATTACK` timer and it stops on disengage. Pure trigger logic in
 Spec/plan: `docs/superpowers/specs/2026-06-25-bot-ranged-auto-attack-design.md`,
 `docs/superpowers/plans/2026-06-25-bot-ranged-auto-attack.md`.
 
+## Hunter bot pets
+
+Status: **first pass**
+
+Hunter bots now summon and maintain a real pet. On the follow tick,
+`BotMgr::EnsureHunterPet` reconciles pet state: a petless live Hunter gets one — the
+**nearest tameable beast** in range (`PickTameableBeastEntry`, skipping other players'
+pets/summons), or Young Wolf #299 as fallback — summoned via the `EffectTameCreature`
+sequence (`CreateTamedPetFrom` → level → `AddToMap` → `SetMinion` → `REACT_DEFENSIVE` →
+`SavePetToDB`); a dead pet is revived after `Custom.BotAutoReviveDelayMs` (the delay
+value only — pet revive isn't gated by the `BotAutoRevive` enable flag); a living pet's
+level is kept in sync (hunter pets don't auto-sync). Combat/follow come free from
+`PetAI` (a defensive pet assists the owner's victim). The pet is despawned on
+`.bot remove` (before logout/save). Pure decisions in `BotPetPolicy`
+(`tests/game/BotPetPolicy.cpp`). Key files:
+`src/server/scripts/Custom/Bots/BotPetPolicy.{h,cpp}`, `BotMgr.{h,cpp}`.
+**Limitation:** pet upkeep runs on the master-follow path, so a master-less / parked
+Hunter bot (or one whose master is offline) won't summon/revive a pet until it has an
+online master. Out of scope: pet ability rotation, specific-pet taming,
+families/talents, non-hunter pets. Spec/plan:
+`docs/superpowers/specs/2026-06-26-bot-hunter-pets-design.md`,
+`docs/superpowers/plans/2026-06-26-bot-hunter-pets.md`.
+
 ## Custom secondary professions
 
 Status: **done**

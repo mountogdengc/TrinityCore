@@ -9,10 +9,16 @@
 #include "BotCombatPolicy.h"
 #include "BotDeathPolicy.h"
 #include "BotMovementPolicy.h"
+#include "BotPetPolicy.h"
 #include "BotRangedAttackPolicy.h"
 #include "BotRotation.h"
+#include "CellImpl.h"
 #include "CharacterCache.h"
 #include "Chat.h"
+#include "Creature.h"
+#include "CreatureData.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "Group.h"
 #include "GroupMgr.h"
 #include "Log.h"
@@ -21,6 +27,7 @@
 #include "MovementPackets.h"
 #include "ObjectAccessor.h"
 #include "Opcodes.h"
+#include "Pet.h"
 #include "Player.h"
 #include "Realm/ClientBuildInfo.h"
 #include "SharedDefines.h"
@@ -46,6 +53,8 @@ namespace
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
     constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
     constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
+    constexpr uint32 BOT_DEFAULT_PET_ENTRY  = 299;   // Young Wolf -- verified tameable beast fallback
+    constexpr float  BOT_PET_SCAN_RANGE     = 40.0f; // how far to look for a tameable beast to "tame"
 
     std::string ToLower(std::string str)
     {
@@ -180,10 +189,14 @@ bool BotMgr::RemoveBot(std::string const& characterName, std::string& error)
     WorldSession* session = itr->second.session;
     _bots.erase(itr);
 
-    // Leave the master's party so it isn't left with a stale member.
+    // Despawn any hunter pet and leave the master's party before logout/save.
     if (Player* bot = session->GetPlayer())
+    {
+        if (Pet* pet = bot->GetPet())
+            bot->RemovePet(pet, PET_SAVE_NOT_IN_SLOT);   // despawn pet before ~WorldSession saves the char
         if (Group* group = bot->GetGroup())
             group->RemoveMember(bot->GetGUID());
+    }
 
     // ~WorldSession() calls LogoutPlayer(true) when a player is still attached,
     // which saves the character and removes it from the map / ObjectAccessor.
@@ -293,6 +306,7 @@ void BotMgr::UpdateFollow()
 
         // M3: keep the bot in the master's party so they share the same instance.
         EnsureGrouped(bot, master);
+        EnsureHunterPet(bot, entry);
 
         // Are we mid-fight with a reachable, still-valid victim? If so, don't let
         // the same-map catch-up blink yank us off it (a *caster* master -- e.g. an
@@ -462,6 +476,101 @@ uint32 BotMgr::FindRangedAutoAttackSpell(Player* bot)
             return spellId;   // Auto Shot (Hunter) / Shoot (wand caster)
     }
     return 0;
+}
+
+uint32 BotMgr::PickTameableBeastEntry(Player* bot)
+{
+    std::vector<Creature*> nearby;
+    FindCreatureOptions opts;
+    opts.IsAlive = FindCreatureAliveState::Alive;
+    opts.IsSummon = false;   // skip totems / temporary summons
+    bot->GetCreatureListWithOptionsInGrid(nearby, BOT_PET_SCAN_RANGE, opts);
+
+    Creature* best = nullptr;
+    float bestDist = 0.0f;
+    for (Creature* c : nearby)
+    {
+        if (c->IsPet())
+            continue;   // never pick another player's tamed pet (it shares the beast template)
+        CreatureTemplate const* tmpl = c->GetCreatureTemplate();
+        if (!tmpl || !tmpl->IsTameable(false, c->GetCreatureDifficulty()))
+            continue;
+        float const d = bot->GetExactDist(c);
+        if (!best || d < bestDist)
+        {
+            best = c;
+            bestDist = d;
+        }
+    }
+    return best ? best->GetEntry() : BOT_DEFAULT_PET_ENTRY;
+}
+
+void BotMgr::SummonBotPet(Player* bot, uint32 entry)
+{
+    if (!entry || bot->GetPet())
+        return;
+
+    Pet* pet = bot->CreateTamedPetFrom(entry, 0);
+    if (!pet)
+        return;
+
+    // Mirror EffectTameCreature ordering:
+    //   SetLevel(level-1) before AddToMap triggers the visual levelup effect;
+    //   SetLevel(level) after AddToMap completes the visual.
+    // NOTE: GivePetLevel is NOT called here -- EffectTameCreature does not call it
+    //   and CreateTamedPetFrom already initialises stats for the given entry.
+    uint8 const level = bot->GetLevel();
+    pet->SetLevel(level > 1 ? level - 1 : level);   // prepare visual effect for levelup
+    pet->GetMap()->AddToMap(pet->ToCreature());
+    pet->SetLevel(level);                            // visual effect for levelup
+    bot->SetMinion(pet, true);
+    pet->SetReactState(REACT_DEFENSIVE);             // assist owner's target, don't auto-aggro
+    pet->SavePetToDB(PET_SAVE_AS_CURRENT);
+    // (Skip PetSpellInitialize -- that only sends the pet action bar to a real client.)
+    TC_LOG_DEBUG("bots", "Bot '{}' summoned pet entry {} at level {}.", bot->GetName(), entry, uint32(level));
+}
+
+void BotMgr::EnsureHunterPet(Player* bot, BotEntry& entry)
+{
+    bool const isHunter = bot->GetClass() == CLASS_HUNTER;
+    bool const inWorld  = bot->IsInWorld();
+    bool const alive    = bot->IsAlive();
+    if (!isHunter || !inWorld || !alive)
+        return;   // engine guard: pet actions only for a live, in-world hunter
+
+    Pet* pet = bot->GetPet();
+
+    // Dead pet -> revive after the configured delay (recreate fresh at full health).
+    if (pet && pet->isDead())
+    {
+        entry.petDeadTimer += BOT_FOLLOW_INTERVAL_MS;
+        // In this branch petExists/petAlive are fixed (true/false); only the dead-timer
+        // vs the revive delay actually decides here.
+        if (BotPetPolicy::ShouldRevivePet(true, false, int32(entry.petDeadTimer),
+                sWorld->getIntConfig(CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS)))
+        {
+            bot->RemovePet(pet, PET_SAVE_NOT_IN_SLOT);
+            entry.petDeadTimer = 0;
+            if (!entry.petEntry)
+                entry.petEntry = PickTameableBeastEntry(bot);
+            SummonBotPet(bot, entry.petEntry);
+        }
+        return;
+    }
+    entry.petDeadTimer = 0;
+
+    // No pet -> summon (initial spawn / after a cross-map teleport unsummoned it).
+    if (BotPetPolicy::ShouldSummonPet(isHunter, inWorld, alive, pet != nullptr))
+    {
+        if (!entry.petEntry)
+            entry.petEntry = PickTameableBeastEntry(bot);
+        SummonBotPet(bot, entry.petEntry);
+        return;
+    }
+
+    // Living pet -> keep its level in sync with the bot.
+    if (pet && BotPetPolicy::NeedsLevelSync(pet->GetLevel(), bot->GetLevel()))
+        pet->GivePetLevel(bot->GetLevel());
 }
 
 Unit* BotMgr::SelectAssistTarget(Player* bot, Player* master)

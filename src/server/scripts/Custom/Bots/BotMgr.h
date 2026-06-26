@@ -66,6 +66,8 @@ private:
         ObjectGuid    combatTarget;          // current chase target; drives re-issue of MoveChase on a switch
         uint32        rangedAutoSpellId = 0; // cached autorepeat ranged spell (Auto Shot / wand Shoot); 0 = none
         bool          rangedAutoChecked = false; // true once we've scanned this bot's spells for the above
+        uint32        petEntry = 0;          // cached chosen tameable-beast entry (0 = not yet picked)
+        uint32        petDeadTimer = 0;      // ms the hunter pet has been dead (drives revive delay)
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -84,6 +86,13 @@ private:
     // Find this bot's autorepeat ranged spell (Auto Shot for a Hunter, wand Shoot for a
     // wand-equipped caster), or 0 if it has no usable ranged weapon / no such spell.
     uint32 FindRangedAutoAttackSpell(Player* bot);
+
+    // Hunter pets: reconcile pet state (summon / revive / level-sync) each follow tick.
+    void EnsureHunterPet(Player* bot, BotEntry& entry);
+    // Summon a HUNTER_PET of `entry` for the bot at the bot's level (the tame sequence).
+    void SummonBotPet(Player* bot, uint32 entry);
+    // Nearest tameable beast to the bot, or BOT_DEFAULT_PET_ENTRY if none in range.
+    uint32 PickTameableBeastEntry(Player* bot);
 
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;
