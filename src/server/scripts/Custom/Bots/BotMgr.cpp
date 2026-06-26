@@ -141,6 +141,8 @@ bool BotMgr::AddBot(std::string const& characterName, ObjectGuid master, std::st
         0u /*build*/, ClientBuild::VariantId{}, LOCALE_enUS,
         0u /*recruiter*/, false);
 
+    session->SetBot();   // socketless-by-design: suppress "non existent socket" log spam
+
     _bots[key] = BotEntry{ session, master };
     _bots[key].formationSlot = _nextFormationSlot++;
 
