@@ -477,12 +477,15 @@ uint32 BotMgr::PickTameableBeastEntry(Player* bot)
     std::vector<Creature*> nearby;
     FindCreatureOptions opts;
     opts.IsAlive = FindCreatureAliveState::Alive;
+    opts.IsSummon = false;   // skip totems / temporary summons
     bot->GetCreatureListWithOptionsInGrid(nearby, BOT_PET_SCAN_RANGE, opts);
 
     Creature* best = nullptr;
     float bestDist = 0.0f;
     for (Creature* c : nearby)
     {
+        if (c->IsPet())
+            continue;   // never pick another player's tamed pet (it shares the beast template)
         CreatureTemplate const* tmpl = c->GetCreatureTemplate();
         if (!tmpl || !tmpl->IsTameable(false, c->GetCreatureDifficulty()))
             continue;
