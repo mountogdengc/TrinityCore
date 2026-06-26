@@ -9,6 +9,7 @@
 #include "BotCombatPolicy.h"
 #include "BotDeathPolicy.h"
 #include "BotMovementPolicy.h"
+#include "BotRangedAttackPolicy.h"
 #include "BotRotation.h"
 #include "CharacterCache.h"
 #include "Chat.h"
@@ -367,12 +368,26 @@ void BotMgr::UpdateFollow()
                 // halts unless GetVictim()==target (ChaseMovementGenerator::HasLostTarget), and
                 // ChaseRange(BOT_RANGED_DIST) -- not Attack() -- is what stops the bot closing to
                 // melee. Re-issue on a target switch or if the generator was dropped.
-                if (entry.combatTarget != target->GetGUID() || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+                bool const targetChanged = entry.combatTarget != target->GetGUID();
+                if (targetChanged || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
                 {
                     bot->Attack(target, false);   // set m_attacking (chase needs it); false => no melee swings
                     mm->MoveChase(target, ChaseRange(BOT_RANGED_DIST), chaseAngle);
                     entry.combatTarget = target->GetGUID();
                 }
+
+                // Ranged auto-attack: keep Auto Shot / wand Shoot running alongside the
+                // rotation (it loops itself on the RANGED_ATTACK timer once started). Scan
+                // once for this bot's autorepeat spell and cache it. Start it when not
+                // already repeating, or re-point it after a target switch.
+                if (!entry.rangedAutoChecked)
+                {
+                    entry.rangedAutoSpellId = FindRangedAutoAttackSpell(bot);
+                    entry.rangedAutoChecked = true;
+                }
+                bool const repeating = bot->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL) != nullptr;
+                if (BotRangedAttackPolicy::ShouldStartAutoRepeat(entry.rangedAutoSpellId != 0, repeating, targetChanged))
+                    bot->CastSpell(target, entry.rangedAutoSpellId, false);   // untriggered => routes into the autorepeat slot
             }
             else
             {
@@ -405,6 +420,7 @@ void BotMgr::UpdateFollow()
         // follow. The post-combat hold below keeps us from snapping back instantly.
         if (bot->GetVictim())
             bot->AttackStop();
+        bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);   // stop Auto Shot / wand Shoot when disengaging
 
         if (entry.holdTimer)
         {
