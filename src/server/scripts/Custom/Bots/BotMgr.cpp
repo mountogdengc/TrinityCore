@@ -544,6 +544,8 @@ void BotMgr::EnsureHunterPet(Player* bot, BotEntry& entry)
     if (pet && pet->isDead())
     {
         entry.petDeadTimer += BOT_FOLLOW_INTERVAL_MS;
+        // In this branch petExists/petAlive are fixed (true/false); only the dead-timer
+        // vs the revive delay actually decides here.
         if (BotPetPolicy::ShouldRevivePet(true, false, int32(entry.petDeadTimer),
                 sWorld->getIntConfig(CONFIG_CUSTOM_BOT_AUTO_REVIVE_DELAY_MS)))
         {
