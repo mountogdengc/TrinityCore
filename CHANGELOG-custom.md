@@ -183,6 +183,26 @@ families/talents, non-hunter pets. Spec/plan:
 `docs/superpowers/specs/2026-06-26-bot-hunter-pets-design.md`,
 `docs/superpowers/plans/2026-06-26-bot-hunter-pets.md`.
 
+## Pet Battles — wild pet battle system
+
+Status: **scoping / roadmap only — NOT implemented**
+
+Wild critters spawn fine, but the player cannot pet-battle them (no green paw icon,
+clicking does nothing). This is **upstream-unimplemented, not a fork bug**: every
+`CMSG_PET_BATTLE_*` opcode is `Handle_NULL` (`Opcodes.cpp:849–858`), no
+`SMSG_PET_BATTLE_*` flow packets exist, and the core never sets
+`UNIT_NPC_FLAG_WILD_BATTLE_PET` (only removes it). Only the **journal/collection**
+half exists today (`BattlePetMgr`: own/cage/level/heal/slot/summon-as-companion).
+
+A full design + milestone roadmap (M1 paw-flag → M2 setup handshake → M3 turn
+resolution → M4 capture/XP/persist → M5 PvE tamers → M6 PvP, deferred) is in
+`docs/superpowers/specs/2026-06-26-pet-battles-design.md`. No code has been written;
+this entry exists so future sessions don't re-investigate "critters won't battle" as a
+spawn bug. Existing foundation to build on: `GetBattlePetSpeciesByCreature`,
+`SelectWildBattlePetLevel`, the `WildBattlePetLevel` unit field, and the loaded
+`sBattlePetSpecies/Ability/BreedQuality/BreedState/SpeciesState` DB2 stores (the
+ability-effect stores are not yet loaded).
+
 ## Custom secondary professions
 
 Status: **done**
