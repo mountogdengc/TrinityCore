@@ -9,6 +9,7 @@
 #include "BotCombatPolicy.h"
 #include "BotDeathPolicy.h"
 #include "BotMovementPolicy.h"
+#include "BotRangedAttackPolicy.h"
 #include "BotRotation.h"
 #include "CharacterCache.h"
 #include "Chat.h"
@@ -24,6 +25,8 @@
 #include "Realm/ClientBuildInfo.h"
 #include "SharedDefines.h"
 #include "SpellDefines.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
@@ -365,12 +368,29 @@ void BotMgr::UpdateFollow()
                 // halts unless GetVictim()==target (ChaseMovementGenerator::HasLostTarget), and
                 // ChaseRange(BOT_RANGED_DIST) -- not Attack() -- is what stops the bot closing to
                 // melee. Re-issue on a target switch or if the generator was dropped.
-                if (entry.combatTarget != target->GetGUID() || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+                bool const targetChanged = entry.combatTarget != target->GetGUID();
+                if (targetChanged || mm->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
                 {
                     bot->Attack(target, false);   // set m_attacking (chase needs it); false => no melee swings
                     mm->MoveChase(target, ChaseRange(BOT_RANGED_DIST), chaseAngle);
                     entry.combatTarget = target->GetGUID();
                 }
+
+                // Ranged auto-attack: keep Auto Shot / wand Shoot running alongside the
+                // rotation (it loops itself on the RANGED_ATTACK timer once started). Scan
+                // once for this bot's autorepeat spell and cache it (one-shot: a wand
+                // equipped mid-session won't weave until the bot is re-added). Start it when
+                // not already repeating, or re-point it after a target switch. Note a
+                // rotation generic-spell cast interrupts a wand's Shoot (but not Auto Shot),
+                // so for wand casters this simply restarts it on the next tick.
+                if (!entry.rangedAutoChecked)
+                {
+                    entry.rangedAutoSpellId = FindRangedAutoAttackSpell(bot);
+                    entry.rangedAutoChecked = true;
+                }
+                bool const repeating = bot->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL) != nullptr;
+                if (BotRangedAttackPolicy::ShouldStartAutoRepeat(entry.rangedAutoSpellId != 0, repeating, targetChanged))
+                    bot->CastSpell(target, entry.rangedAutoSpellId, false);   // untriggered => routes into the autorepeat slot
             }
             else
             {
@@ -403,6 +423,7 @@ void BotMgr::UpdateFollow()
         // follow. The post-combat hold below keeps us from snapping back instantly.
         if (bot->GetVictim())
             bot->AttackStop();
+        bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);   // stop Auto Shot / wand Shoot when disengaging
 
         if (entry.holdTimer)
         {
@@ -419,6 +440,26 @@ void BotMgr::UpdateFollow()
             bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST,
                 ChaseAngle(BotMovementPolicy::FormationFollowAngle(entry.formationSlot)));
     }
+}
+
+uint32 BotMgr::FindRangedAutoAttackSpell(Player* bot)
+{
+    // No usable bow/gun/wand in the ranged slot -> nothing to auto-attack with. This is
+    // exactly the caster-without-a-wand no-op (we never hand out wands).
+    if (!bot->GetWeaponForAttack(RANGED_ATTACK, /*useable*/ true))
+        return 0;
+
+    Difficulty const difficulty = bot->GetMap()->GetDifficultyID();
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (playerSpell.state == PLAYERSPELL_REMOVED || !playerSpell.active || playerSpell.disabled)
+            continue;
+
+        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId, difficulty);
+        if (spellInfo && spellInfo->IsAutoRepeatRangedSpell())
+            return spellId;   // Auto Shot (Hunter) / Shoot (wand caster)
+    }
+    return 0;
 }
 
 Unit* BotMgr::SelectAssistTarget(Player* bot, Player* master)

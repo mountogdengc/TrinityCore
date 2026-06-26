@@ -145,10 +145,20 @@ Two movement fixes now that bots cast effective spells:
 Pure, unit-tested policy: `src/server/scripts/Custom/Bots/BotMovementPolicy.{h,cpp}`
 (`tests/game/BotMovementPolicy.cpp`); wired into the combat/follow loop in
 `BotMgr::UpdateFollow`. Out of scope (follow-ups in
-`docs/bot-ux-future-milestones.md`): role-aware formation shaping, ranged
-auto-attack/wand between casts, kiting, Hunter pets, bot gear, formation presets/UI.
+`docs/bot-ux-future-milestones.md`): role-aware formation shaping, kiting, Hunter
+pets, bot gear, formation presets/UI.
 Spec/plan: `docs/superpowers/specs/2026-06-25-bot-ranged-positioning-formation-design.md`,
 `docs/superpowers/plans/2026-06-25-bot-ranged-positioning-formation.md`.
+
+**Ranged auto-attack between casts.** Ranged bots now keep their ranged auto-attack
+running while in combat — Hunters fire **Auto Shot**, casters fire wand **Shoot** when
+a wand is equipped (no wand → silent no-op; we don't hand out wands). `BotMgr` scans the
+bot's known spells once for its autorepeat ranged spell (no hardcoded ids — there are
+~12 Auto Shot variants) and starts it in the ranged combat branch; the engine loops it
+on the `RANGED_ATTACK` timer and it stops on disengage. Pure trigger logic in
+`BotRangedAttackPolicy::ShouldStartAutoRepeat` (`tests/game/BotRangedAttackPolicy.cpp`).
+Spec/plan: `docs/superpowers/specs/2026-06-25-bot-ranged-auto-attack-design.md`,
+`docs/superpowers/plans/2026-06-25-bot-ranged-auto-attack.md`.
 
 ## Custom secondary professions
 
@@ -311,6 +321,29 @@ Notes:
 
 Config: `docker/worldserver/entrypoint.sh` (the `AHBOT_*` env + `set_conf` lines);
 all knobs live in the upstream `AuctionHouseBot.*` block of `worldserver.conf.dist`.
+
+## Server rate overrides
+
+Status: **done**
+
+Non-default `Rate.*` / `SkillGain.*` values for this fork (everything else is at the
+`worldserver.conf.dist` default of 1):
+
+- **Loot:** `Rate.Drop.Item.* = 2`, `Rate.Drop.Money = 2`,
+  `Rate.Drop.Item.ReferencedAmount = 2`. *Set directly in the persisted
+  `worldserver.conf`.* ⚠️ These scale the drop **chance** of items
+  (`LootStoreItem::Roll` → `roll_chance(chance * qualityModifier)`), **not** stack
+  counts. So they boost *low-chance* drops (e.g. gems/extra items in a vein) but do
+  **not** increase the base ore/herb count of a guaranteed gather (already ~100%).
+- **Gathering skill:** `SkillGain.Gathering = 2` (2x mining/herb skill-ups). *Conf.*
+- XP and crafting skill-gain are left at 1x.
+
+**No mining-yield multiplier exists in retail master.** The legacy 3.3.5
+`Rate.Mining.Amount` / `Rate.Mining.Next` config keys were removed from this codebase
+(no `RATE_MINING_*` anywhere in `src/`). Ore/herb count per node is fixed by
+`gameobject_loot_template.mincount/maxcount` (a DB value) and isn't scaled by any
+`Rate.*`. To increase yield you must edit those loot-template counts (world DB) or add a
+custom gather-amount multiplier in the loot-count code.
 
 ## Retail base-Stamina fix (player_classlevelstats)
 
