@@ -212,6 +212,36 @@ already-placed faction-AH auctions.
 
 Key files: `docker/worldserver/entrypoint.sh` (env flag + `set_conf` calls).
 
+## Allied races: Exile's Reach start option (level 1)
+
+Status: **server-side done — needs in-client verification of the toggle** (2026-06-25)
+
+Lets allied races choose **Exile's Reach (the New Player Experience) and start at
+level 1**, instead of only their level-10 heritage start. Picking their **normal
+start** is unchanged (still the level-10 heritage intro).
+
+The NPE machinery already exists in the core (`CharacterCreateInfo::UseNPE` +
+`playercreateinfo.createPositionNPE`); allied races just lacked the data + a level
+rule:
+- **Code** — `Player::GetStartLevel` gains a `useNewPlayerExperience` arg; in NPE
+  mode it skips the allied-race level bump so the character starts at level 1 like a
+  core race. `Player::Create` passes `m_createMode == PlayerCreateMode::NPE`.
+  (Tracked under *Code modifications to upstream files*.)
+- **Data** — `sql/updates/world/master/2026_06_25_00_world.sql` populates the NPE
+  columns (faction-appropriate Exile's Reach spawn) for the allied races, excluding
+  Death Knights (kept on their dedicated start). Guarded by `npe_map IS NULL`.
+
+⚠️ **Open item:** whether the live 12.0.5 client actually *offers* the "Exile's
+Reach" toggle for an allied race is **not verifiable headless** — it may be a
+client-side gate needing a `CharBaseInfo`/race-flag hotfix. The server side is
+correct and ready; this needs a quick in-client check (create an allied race → is
+the Exile's Reach option shown? → does it land you on the ship at level 1?). Needs a
+`docker compose build` (C++) + the auto-applied SQL.
+
+Hero-class / Dracthyr exceptions are intentionally **left as-is** (their dedicated
+starts via `StartDeathKnightPlayerLevel` / `StartDemonHunterPlayerLevel` /
+`StartEvokerPlayerLevel`).
+
 ## Tirisfal recruitment (Darnell escort)
 
 Status: **done**
@@ -450,6 +480,13 @@ useful as a gdb backtrace against the matching binary. Files:
 In-place edits to stock TrinityCore source (track these so an upstream merge
 doesn't silently revert them):
 
+- **`src/server/game/Entities/Player/Player.{h,cpp}`** — allied-race Exile's Reach
+  start level. `Player::GetStartLevel` gains a `useNewPlayerExperience` parameter
+  (default false); when set it skips the `IsAlliedRace` level bump so an allied race
+  created through the NPE starts at level 1. `Player::Create` passes
+  `m_createMode == PlayerCreateMode::NPE`. Pairs with the allied-race NPE position data
+  in `sql/updates/world/master/2026_06_25_00_world.sql`. (See *Allied races: Exile's
+  Reach start option* above.)
 - **`src/server/game/Handlers/CharacterHandler.cpp`** — headless-bot visibility fix.
   In `WorldSession::LoadBotCharacter`, after `HandlePlayerLogin`, set
   `PLAYER_LOCAL_FLAG_OVERRIDE_TRANSPORT_SERVER_TIME` on the loaded bot. A real client
