@@ -510,6 +510,12 @@ doesn't silently revert them):
   `/emote` dead-checks behind `Custom.AllowChatWhileDead`.
 - **`src/server/scripts/Commands/cs_misc.cpp`** — adds the `.revive corpse`
   variant to `HandleReviveCommand`.
+- **`src/server/game/Server/WorldSession.{h,cpp}`** — adds a `WorldSession::IsBot()`
+  flag (set by `BotMgr` on the headless bot session via `SetBot()`) and gates the
+  "non existent socket" `network.opcode` ERROR in `SendPacket` on `!IsBot()`. Headless
+  bots are socketless by design, so that log fired for every packet routed to a bot
+  (~23k lines/session); the packet is still dropped and real-client socket errors still
+  log. (Player-bots, above.)
   _(The temporary `[ABSORB-DIAG]` / `[DMG-DIAG]` `TC_LOG_ERROR` instrumentation that
   was added to `Unit::CalcAbsorbResist` and `Unit::AttackerStateUpdate` to diagnose
   the PW:Shield issue has been removed now that the absorb-vs-scaling fix above is
