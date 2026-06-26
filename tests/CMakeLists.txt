@@ -22,6 +22,7 @@ target_sources(tests
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotCohortPolicy.cpp
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotDeathPolicy.cpp
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotMovementPolicy.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotPetPolicy.cpp
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotRangedAttackPolicy.cpp
     ${CMAKE_SOURCE_DIR}/src/server/scripts/Custom/Bots/BotRotationPolicy.cpp
     ${CMAKE_SOURCE_DIR}/src/server/scripts/EasternKingdoms/tirisfal_recruitment.cpp)
