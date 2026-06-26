@@ -11,8 +11,13 @@
 #include "BotMovementPolicy.h"
 #include "BotRangedAttackPolicy.h"
 #include "BotRotation.h"
+#include "CellImpl.h"
 #include "CharacterCache.h"
 #include "Chat.h"
+#include "Creature.h"
+#include "CreatureData.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "Group.h"
 #include "GroupMgr.h"
 #include "Log.h"
@@ -21,6 +26,7 @@
 #include "MovementPackets.h"
 #include "ObjectAccessor.h"
 #include "Opcodes.h"
+#include "Pet.h"
 #include "Player.h"
 #include "Realm/ClientBuildInfo.h"
 #include "SharedDefines.h"
@@ -46,6 +52,8 @@ namespace
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
     constexpr float  BOT_COMBAT_LEASH_DIST  = 60.0f;
     constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
+    constexpr uint32 BOT_DEFAULT_PET_ENTRY  = 299;   // Young Wolf -- verified tameable beast fallback
+    constexpr float  BOT_PET_SCAN_RANGE     = 40.0f; // how far to look for a tameable beast to "tame"
 
     std::string ToLower(std::string str)
     {
@@ -462,6 +470,55 @@ uint32 BotMgr::FindRangedAutoAttackSpell(Player* bot)
             return spellId;   // Auto Shot (Hunter) / Shoot (wand caster)
     }
     return 0;
+}
+
+uint32 BotMgr::PickTameableBeastEntry(Player* bot)
+{
+    std::vector<Creature*> nearby;
+    FindCreatureOptions opts;
+    opts.IsAlive = FindCreatureAliveState::Alive;
+    bot->GetCreatureListWithOptionsInGrid(nearby, BOT_PET_SCAN_RANGE, opts);
+
+    Creature* best = nullptr;
+    float bestDist = 0.0f;
+    for (Creature* c : nearby)
+    {
+        CreatureTemplate const* tmpl = c->GetCreatureTemplate();
+        if (!tmpl || !tmpl->IsTameable(false, c->GetCreatureDifficulty()))
+            continue;
+        float const d = bot->GetExactDist(c);
+        if (!best || d < bestDist)
+        {
+            best = c;
+            bestDist = d;
+        }
+    }
+    return best ? best->GetEntry() : BOT_DEFAULT_PET_ENTRY;
+}
+
+void BotMgr::SummonBotPet(Player* bot, uint32 entry)
+{
+    if (!entry || bot->GetPet())
+        return;
+
+    Pet* pet = bot->CreateTamedPetFrom(entry, 0);
+    if (!pet)
+        return;
+
+    // Mirror EffectTameCreature ordering:
+    //   SetLevel(level-1) before AddToMap triggers the visual levelup effect;
+    //   SetLevel(level) after AddToMap completes the visual.
+    // NOTE: GivePetLevel is NOT called here -- EffectTameCreature does not call it
+    //   and CreateTamedPetFrom already initialises stats for the given entry.
+    uint8 const level = bot->GetLevel();
+    pet->SetLevel(level > 1 ? level - 1 : level);   // prepare visual effect for levelup
+    pet->GetMap()->AddToMap(pet->ToCreature());
+    pet->SetLevel(level);                            // visual effect for levelup
+    bot->SetMinion(pet, true);
+    pet->SetReactState(REACT_DEFENSIVE);             // assist owner's target, don't auto-aggro
+    pet->SavePetToDB(PET_SAVE_AS_CURRENT);
+    // (Skip PetSpellInitialize -- that only sends the pet action bar to a real client.)
+    TC_LOG_DEBUG("bots", "Bot '{}' summoned pet entry {} at level {}.", bot->GetName(), entry, uint32(level));
 }
 
 Unit* BotMgr::SelectAssistTarget(Player* bot, Player* master)
