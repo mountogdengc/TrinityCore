@@ -322,6 +322,29 @@ Notes:
 Config: `docker/worldserver/entrypoint.sh` (the `AHBOT_*` env + `set_conf` lines);
 all knobs live in the upstream `AuctionHouseBot.*` block of `worldserver.conf.dist`.
 
+## Server rate overrides
+
+Status: **done**
+
+Non-default `Rate.*` / `SkillGain.*` values for this fork (everything else is at the
+`worldserver.conf.dist` default of 1):
+
+- **Loot:** `Rate.Drop.Item.* = 2`, `Rate.Drop.Money = 2`,
+  `Rate.Drop.Item.ReferencedAmount = 2`. *Set directly in the persisted
+  `worldserver.conf`.* ⚠️ These scale the drop **chance** of items
+  (`LootStoreItem::Roll` → `roll_chance(chance * qualityModifier)`), **not** stack
+  counts. So they boost *low-chance* drops (e.g. gems/extra items in a vein) but do
+  **not** increase the base ore/herb count of a guaranteed gather (already ~100%).
+- **Gathering skill:** `SkillGain.Gathering = 2` (2x mining/herb skill-ups). *Conf.*
+- XP and crafting skill-gain are left at 1x.
+
+**No mining-yield multiplier exists in retail master.** The legacy 3.3.5
+`Rate.Mining.Amount` / `Rate.Mining.Next` config keys were removed from this codebase
+(no `RATE_MINING_*` anywhere in `src/`). Ore/herb count per node is fixed by
+`gameobject_loot_template.mincount/maxcount` (a DB value) and isn't scaled by any
+`Rate.*`. To increase yield you must edit those loot-template counts (world DB) or add a
+custom gather-amount multiplier in the loot-count code.
+
 ## Retail base-Stamina fix (player_classlevelstats)
 
 Status: **done** (2026-06-22)
