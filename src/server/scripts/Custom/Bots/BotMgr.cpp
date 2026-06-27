@@ -240,6 +240,14 @@ void BotMgr::SetFormation(ObjectGuid master, BotFormation preset)
 
 void BotMgr::UpdateFollow()
 {
+    // Per-master squad index/size for formation positioning. Computed over ALL bots up
+    // front so the per-bot early-continues below don't shift anyone's slot.
+    std::unordered_map<ObjectGuid, uint32> squadCount;
+    std::unordered_map<std::string, uint32> squadIndex;
+    for (auto const& [n, e] : _bots)
+        if (!e.master.IsEmpty())
+            squadIndex[n] = squadCount[e.master]++;
+
     for (auto& [name, entry] : _bots)
     {
         if (entry.master.IsEmpty())
@@ -463,9 +471,22 @@ void BotMgr::UpdateFollow()
         // isn't a follow (initial, post-teleport, post-combat). Clear the stored combat
         // target so the next engagement re-issues its chase.
         entry.combatTarget = ObjectGuid::Empty;
-        if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-            bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST,
-                ChaseAngle(BotMovementPolicy::FormationFollowAngle(entry.formationSlot)));
+        {
+            uint32 const idx = squadIndex[name];
+            uint32 const cnt = squadCount[entry.master];
+            BotFormation const preset = GetFormation(entry.master);
+            FormationOffset const f = BotFormationPolicy::Offset(preset, idx, cnt);
+            // Re-issue the follow when it isn't active OR the formation/slot/size changed,
+            // so `.bot formation` and squad-membership changes take effect promptly (but not
+            // every tick, which would stutter the path).
+            uint32 const key = (uint32(preset) << 16) | ((idx & 0xFF) << 8) | (cnt & 0xFF);
+            if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE
+                || entry.formationKey != key)
+            {
+                bot->GetMotionMaster()->MoveFollow(master, f.distance, ChaseAngle(f.angle));
+                entry.formationKey = key;
+            }
+        }
     }
 }
 
