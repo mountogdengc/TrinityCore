@@ -227,6 +227,17 @@ void BotMgr::Update(uint32 diff)
     UpdateFollow();
 }
 
+BotFormation BotMgr::GetFormation(ObjectGuid master) const
+{
+    auto itr = _formations.find(master);
+    return itr != _formations.end() ? itr->second : BotFormation::Wedge;
+}
+
+void BotMgr::SetFormation(ObjectGuid master, BotFormation preset)
+{
+    _formations[master] = preset;
+}
+
 void BotMgr::UpdateFollow()
 {
     for (auto& [name, entry] : _bots)
