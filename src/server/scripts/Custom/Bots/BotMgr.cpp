@@ -40,6 +40,7 @@
 #include "WorldSocket.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <memory>
 
 namespace
@@ -54,6 +55,8 @@ namespace
     constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
     constexpr uint32 BOT_DEFAULT_PET_ENTRY  = 299;   // Young Wolf -- verified tameable beast fallback
     constexpr float  BOT_PET_SCAN_RANGE     = 40.0f; // how far to look for a tameable beast to "tame"
+    constexpr float  BOT_FORM_PI            = 3.14159265358979f;
+    constexpr float  BOT_FORM_REISSUE_ANGLE = 0.15f; // master must turn ~8.6 deg before the formation re-orients
 
     std::string ToLower(std::string str)
     {
@@ -475,15 +478,23 @@ void BotMgr::UpdateFollow()
             uint32 const cnt = squadCount[entry.master];
             BotFormation const preset = GetFormation(entry.master);
             FormationOffset const f = BotFormationPolicy::Offset(preset, idx, cnt);
-            // Re-issue the follow when it isn't active OR the formation/slot/size changed,
-            // so `.bot formation` and squad-membership changes take effect promptly (but not
-            // every tick, which would stutter the path).
+            // Re-issue the follow when it isn't active, the formation/slot/size changed, OR
+            // the master turned past a threshold. The follow generator only recomputes the
+            // slot when the master's POSITION moves (FollowMovementGenerator), so re-issuing
+            // on a turn is what makes the shape rotate to stay oriented behind the master.
+            // Throttled (not every tick / not on tiny turns) so the path doesn't stutter.
             uint32 const key = (uint32(preset) << 16) | ((idx & 0xFF) << 8) | (cnt & 0xFF);
+            float const masterO = master->GetOrientation();
+            float turnDelta = std::fabs(masterO - entry.formationO);
+            if (turnDelta > BOT_FORM_PI)
+                turnDelta = 2.0f * BOT_FORM_PI - turnDelta;   // shortest-arc difference
             if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE
-                || entry.formationKey != key)
+                || entry.formationKey != key
+                || turnDelta > BOT_FORM_REISSUE_ANGLE)
             {
                 bot->GetMotionMaster()->MoveFollow(master, f.distance, ChaseAngle(f.angle));
                 entry.formationKey = key;
+                entry.formationO = masterO;
             }
         }
     }

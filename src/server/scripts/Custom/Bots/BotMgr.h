@@ -74,6 +74,7 @@ private:
         uint32        petEntry = 0;          // cached chosen tameable-beast entry (0 = not yet picked)
         uint32        petDeadTimer = 0;      // ms the hunter pet has been dead (drives revive delay)
         uint32        formationKey = 0xFFFFFFFF; // last-applied (preset|index|count) packing; re-issue follow on change
+        float         formationO = 0.0f;         // master orientation when the follow was last issued (re-issue so the shape rotates as the master turns)
     };
 
     // M2: make every bot with a master chase / zone with that player.
