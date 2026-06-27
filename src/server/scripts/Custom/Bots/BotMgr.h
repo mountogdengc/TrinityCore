@@ -14,6 +14,7 @@
 #ifndef TRINITYCORE_BOTS_BOTMGR_H
 #define TRINITYCORE_BOTS_BOTMGR_H
 
+#include "BotFormationPolicy.h"
 #include "Define.h"
 #include "ObjectGuid.h"
 #include <string>
@@ -49,6 +50,10 @@ public:
 
     std::size_t GetBotCount() const { return _bots.size(); }
 
+    // Per-master follow formation (in-memory; defaults to Wedge).
+    BotFormation GetFormation(ObjectGuid master) const;
+    void SetFormation(ObjectGuid master, BotFormation preset);
+
 private:
     BotMgr() = default;
     ~BotMgr() = default;
@@ -62,12 +67,14 @@ private:
         uint32        holdTimer = 0;         // M3: ms left to linger after a fight before re-following
         uint32        deadTimer = 0;         // M4: ms the bot has been dead (drives auto-revive)
         uint32        staleCombatTimer = 0;  // M4: ms the current victim has looked invalid (kept until BOT_STALE_COMBAT_MS)
-        uint8         formationSlot = 0;     // per-bot index -> distinct follow/chase angle (anti-stacking)
+        uint8         formationSlot = 0;     // per-bot index -> distinct combat chase angle (anti-stacking); follow now uses the dynamic squad index
         ObjectGuid    combatTarget;          // current chase target; drives re-issue of MoveChase on a switch
         uint32        rangedAutoSpellId = 0; // cached autorepeat ranged spell (Auto Shot / wand Shoot); 0 = none
         bool          rangedAutoChecked = false; // true once we've scanned this bot's spells for the above
         uint32        petEntry = 0;          // cached chosen tameable-beast entry (0 = not yet picked)
         uint32        petDeadTimer = 0;      // ms the hunter pet has been dead (drives revive delay)
+        uint32        formationKey = 0xFFFFFFFF; // last-applied (preset|index|count) packing; re-issue follow on change
+        float         formationO = 0.0f;         // master orientation when the follow was last issued (re-issue so the shape rotates as the master turns)
     };
 
     // M2: make every bot with a master chase / zone with that player.
@@ -96,6 +103,7 @@ private:
 
     // lowercased character name -> bot
     std::unordered_map<std::string, BotEntry> _bots;
+    std::unordered_map<ObjectGuid, BotFormation> _formations;   // master guid -> chosen follow formation
     uint32 _followTimer = 0;
     uint8  _nextFormationSlot = 0;   // hands out BotEntry::formationSlot on AddBot
 };

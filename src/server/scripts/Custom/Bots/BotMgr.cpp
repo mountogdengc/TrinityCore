@@ -40,6 +40,7 @@
 #include "WorldSocket.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <memory>
 
 namespace
@@ -47,7 +48,6 @@ namespace
     // How often the follow pass runs, the chase distance, and the gap past which
     // the bot blinks to the master instead of running (handles mount/taxi/teleport).
     constexpr uint32 BOT_FOLLOW_INTERVAL_MS = 500;
-    constexpr float  BOT_FOLLOW_DIST        = 2.0f;
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
     constexpr float  BOT_RANGED_DIST        = 25.0f; // ranged bots hold at this range and cast (no melee)
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
@@ -55,6 +55,8 @@ namespace
     constexpr uint32 BOT_STALE_COMBAT_MS    = 2000;  // grace window to keep a victim through transient validity blips
     constexpr uint32 BOT_DEFAULT_PET_ENTRY  = 299;   // Young Wolf -- verified tameable beast fallback
     constexpr float  BOT_PET_SCAN_RANGE     = 40.0f; // how far to look for a tameable beast to "tame"
+    constexpr float  BOT_FORM_PI            = 3.14159265358979f;
+    constexpr float  BOT_FORM_REISSUE_ANGLE = 0.15f; // master must turn ~8.6 deg before the formation re-orients
 
     std::string ToLower(std::string str)
     {
@@ -227,8 +229,27 @@ void BotMgr::Update(uint32 diff)
     UpdateFollow();
 }
 
+BotFormation BotMgr::GetFormation(ObjectGuid master) const
+{
+    auto itr = _formations.find(master);
+    return itr != _formations.end() ? itr->second : BotFormation::Wedge;
+}
+
+void BotMgr::SetFormation(ObjectGuid master, BotFormation preset)
+{
+    _formations[master] = preset;
+}
+
 void BotMgr::UpdateFollow()
 {
+    // Per-master squad index/size for formation positioning. Computed over ALL bots up
+    // front so the per-bot early-continues below don't shift anyone's slot.
+    std::unordered_map<ObjectGuid, uint32> squadCount;
+    std::unordered_map<std::string, uint32> squadIndex;
+    for (auto const& [n, e] : _bots)
+        if (!e.master.IsEmpty())
+            squadIndex[n] = squadCount[e.master]++;
+
     for (auto& [name, entry] : _bots)
     {
         if (entry.master.IsEmpty())
@@ -452,9 +473,30 @@ void BotMgr::UpdateFollow()
         // isn't a follow (initial, post-teleport, post-combat). Clear the stored combat
         // target so the next engagement re-issues its chase.
         entry.combatTarget = ObjectGuid::Empty;
-        if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-            bot->GetMotionMaster()->MoveFollow(master, BOT_FOLLOW_DIST,
-                ChaseAngle(BotMovementPolicy::FormationFollowAngle(entry.formationSlot)));
+        {
+            uint32 const idx = squadIndex[name];
+            uint32 const cnt = squadCount[entry.master];
+            BotFormation const preset = GetFormation(entry.master);
+            FormationOffset const f = BotFormationPolicy::Offset(preset, idx, cnt);
+            // Re-issue the follow when it isn't active, the formation/slot/size changed, OR
+            // the master turned past a threshold. The follow generator only recomputes the
+            // slot when the master's POSITION moves (FollowMovementGenerator), so re-issuing
+            // on a turn is what makes the shape rotate to stay oriented behind the master.
+            // Throttled (not every tick / not on tiny turns) so the path doesn't stutter.
+            uint32 const key = (uint32(preset) << 16) | ((idx & 0xFF) << 8) | (cnt & 0xFF);
+            float const masterO = master->GetOrientation();
+            float turnDelta = std::fabs(masterO - entry.formationO);
+            if (turnDelta > BOT_FORM_PI)
+                turnDelta = 2.0f * BOT_FORM_PI - turnDelta;   // shortest-arc difference
+            if (bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE
+                || entry.formationKey != key
+                || turnDelta > BOT_FORM_REISSUE_ANGLE)
+            {
+                bot->GetMotionMaster()->MoveFollow(master, f.distance, ChaseAngle(f.angle));
+                entry.formationKey = key;
+                entry.formationO = masterO;
+            }
+        }
     }
 }
 

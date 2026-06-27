@@ -8,6 +8,7 @@
 
 #include "ScriptMgr.h"
 #include "BotCohortMgr.h"
+#include "BotFormationPolicy.h"
 #include "BotMgr.h"
 #include "CharacterCache.h"
 #include "Chat.h"
@@ -39,8 +40,9 @@ public:
             { "add",    HandleBotAddCommand,    rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
             { "remove", HandleBotRemoveCommand, rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
             { "follow", HandleBotFollowCommand, rbac::RBAC_PERM_COMMAND_GM, Console::No  },
-            { "stay",   HandleBotStayCommand,   rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
-            { "count",  HandleBotCountCommand,  rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
+            { "stay",      HandleBotStayCommand,      rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
+            { "formation", HandleBotFormationCommand, rbac::RBAC_PERM_COMMAND_GM, Console::No  },
+            { "count",     HandleBotCountCommand,     rbac::RBAC_PERM_COMMAND_GM, Console::Yes },
             { "cohort", cohortCommandTable },
         };
 
@@ -129,6 +131,27 @@ private:
         }
 
         handler->PSendSysMessage("Bot '%s' will hold position.", name.c_str());
+        return true;
+    }
+
+    static bool HandleBotFormationCommand(ChatHandler* handler, std::string const& preset)
+    {
+        Player* owner = GetOwner(handler);
+        if (!owner)
+            return false;
+
+        Optional<BotFormation> const parsed = BotFormationPolicy::Parse(preset);
+        if (!parsed)
+        {
+            // Note: '|' is the WoW UI escape char (color codes etc.), so the client eats it
+            // in chat -- list the presets with commas instead.
+            handler->SendSysMessage("Usage: .bot formation line, wedge, circle, or column");
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        sBotMgr->SetFormation(owner->GetGUID(), *parsed);
+        handler->PSendSysMessage("Bots now in %s formation.", preset.c_str());
         return true;
     }
 
