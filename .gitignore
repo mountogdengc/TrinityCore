@@ -36,3 +36,4 @@ cmake-build-*/*
 *.7z
 /wow-client/
 /.codex/
+.superpowers/
