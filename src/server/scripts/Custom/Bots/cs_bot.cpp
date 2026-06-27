@@ -143,7 +143,9 @@ private:
         Optional<BotFormation> const parsed = BotFormationPolicy::Parse(preset);
         if (!parsed)
         {
-            handler->SendSysMessage("Usage: .bot formation line|wedge|circle|column");
+            // Note: '|' is the WoW UI escape char (color codes etc.), so the client eats it
+            // in chat -- list the presets with commas instead.
+            handler->SendSysMessage("Usage: .bot formation line, wedge, circle, or column");
             handler->SetSentErrorMessage(true);
             return false;
         }
