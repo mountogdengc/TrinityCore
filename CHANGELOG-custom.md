@@ -203,6 +203,25 @@ spawn bug. Existing foundation to build on: `GetBattlePetSpeciesByCreature`,
 `sBattlePetSpecies/Ability/BreedQuality/BreedState/SpeciesState` DB2 stores (the
 ability-effect stores are not yet loaded).
 
+## Bot formations
+
+Status: **first pass — engine + chat control**
+
+The squad's follow arrangement is now a chosen preset instead of a fixed fan. Pure
+`BotFormationPolicy` maps `(preset, slot, count)` to a polar offset `(distance, angle)` in
+the master's frame — **Line / Wedge / Circle / Column** — and `BotMgr` feeds it into the
+existing `MoveFollow(master, dist, ChaseAngle(angle))` (so the shape rotates with the
+master as they turn). Each follow pass derives every bot's index within its master's squad
+(a pre-pass over all bots, so dead/teleporting bots hold their slot rather than re-packing
+the shape). Set it with `.bot formation line|wedge|circle|column` (GM, in-world); default
+is Wedge. A per-bot `formationKey` re-issues the follow only when the preset/slot/size
+changes. In-memory per master (resets on restart); combat positioning is unchanged.
+Key files: `src/server/scripts/Custom/Bots/BotFormationPolicy.{h,cpp}`
+(`tests/game/BotFormationPolicy.cpp`), `BotMgr.{h,cpp}`, `cs_bot.cpp`.
+Out of scope (later): the drag-drop addon UI panel, spacing/persistence commands, the
+admin map. Spec/plan: `docs/superpowers/specs/2026-06-26-bot-formation-engine-design.md`,
+`docs/superpowers/plans/2026-06-26-bot-formation-engine.md`.
+
 ## Custom secondary professions
 
 Status: **done**
