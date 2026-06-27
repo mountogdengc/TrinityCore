@@ -67,7 +67,7 @@ private:
         uint32        holdTimer = 0;         // M3: ms left to linger after a fight before re-following
         uint32        deadTimer = 0;         // M4: ms the bot has been dead (drives auto-revive)
         uint32        staleCombatTimer = 0;  // M4: ms the current victim has looked invalid (kept until BOT_STALE_COMBAT_MS)
-        uint8         formationSlot = 0;     // per-bot index -> distinct follow/chase angle (anti-stacking)
+        uint8         formationSlot = 0;     // per-bot index -> distinct combat chase angle (anti-stacking); follow now uses the dynamic squad index
         ObjectGuid    combatTarget;          // current chase target; drives re-issue of MoveChase on a switch
         uint32        rangedAutoSpellId = 0; // cached autorepeat ranged spell (Auto Shot / wand Shoot); 0 = none
         bool          rangedAutoChecked = false; // true once we've scanned this bot's spells for the above

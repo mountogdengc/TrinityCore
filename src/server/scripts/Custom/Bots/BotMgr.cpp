@@ -47,7 +47,6 @@ namespace
     // How often the follow pass runs, the chase distance, and the gap past which
     // the bot blinks to the master instead of running (handles mount/taxi/teleport).
     constexpr uint32 BOT_FOLLOW_INTERVAL_MS = 500;
-    constexpr float  BOT_FOLLOW_DIST        = 2.0f;
     constexpr float  BOT_CATCHUP_DIST       = 40.0f;
     constexpr float  BOT_RANGED_DIST        = 25.0f; // ranged bots hold at this range and cast (no melee)
     constexpr uint32 BOT_POSTCOMBAT_HOLD_MS = 3000;  // linger after a fight before re-following
